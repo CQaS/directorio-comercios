@@ -56,3 +56,23 @@ export async function buscarPromocionesPorComercio(
     },
   ];
 }
+
+
+export async function buscarPromociones(): Promise<Promocion[]> {
+
+  return await
+  buscarPromocionesPorComercio("");
+}
+
+export async function obtenerPromocionesPorId(id:string): Promise<Promocion | null> {
+  const promociones = await
+  buscarPromociones();
+  const promocion = promociones.find((promocion) => promocion.id === id);
+
+  if (promocion === undefined) {
+    return null;
+  }
+
+  return promocion
+  
+}
