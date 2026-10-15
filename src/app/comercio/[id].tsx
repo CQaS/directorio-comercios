@@ -1,42 +1,18 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams } from "expo-router";
 import Button from "../../shared/ui/button";
 import { Promocion } from "../../tipos";
 import { buscarPromocionesPorComercio } from "../../service/promociones";
 
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, ScrollView } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle } from 'react-native-reanimated';
-
-function filaFavorito ({comercio, onEliminar}: {comercio:any;onEliminar:(id:any)=>void}) {
-  const translateX = useSharedValue(0);
-  const swipe = Gesture.Pan()
-  .onUpdate((e) => {
-    translateX.value = Math.min (0, e.translationX);
-  })
-  .onEnd ((e) => {
-    if (e.translationX < -100) {
-      onEliminar(comercio.id);
-    }
-    translateX.value = 0;
-  });
-  const style = useAnimatedStyle(() => ({
-    transform: [{translateX: translateX.value}],
-  }));
-  return (
-    <GestureDetector gesture={swipe}>
-      <Animated.View style = {[styles.fila, style]}>
-        <Text>{comercio.nombre}</Text>
-      </Animated.View>
-    </GestureDetector>
-  );
-} 
 
 export default function DetalleComercioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   
-
+  const [comercio, setComercio] = useState<any>({imagenes:[]});
   const [listaPromociones, setListaPromociones] = useState<Promocion[]>([]);
   const [cargando, setCargando] = useState<boolean>(true);
 
@@ -70,6 +46,30 @@ export default function DetalleComercioScreen() {
         </Text>
       </View>
 
+      <View style= {styles.tarjetaFicha}>
+        <Text style={styles.titulo}>Galería de fotos</Text>
+
+        <ScrollView
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        style= {{height:200, marginVertical:10}}>
+
+          {comercio.imagenes.map((url: string, index: number) =>(
+            <Image
+            key={index}
+            source={{uri: url}}
+            style={{width:280, height:200, borderRadius:8, marginRight:10}}
+            resizeMode = "cover"/>
+          ))}
+        </ScrollView>
+
+        <Text style={styles.titulo}>Video de presentación</Text>
+        <Text style={{fontSize:14, color:'#666', marginTop:5}}>
+          Video corto de presentación(30segundos)
+        </Text>
+      </View>
+
       {/* Promociones */}
       {listaPromociones.length > 0 && (
         <View style={styles.tarjetaFicha}>
@@ -92,6 +92,30 @@ export default function DetalleComercioScreen() {
     </SafeAreaView>
   );
 }
+
+function filaFavorito ({comercio, onEliminar}: {comercio:any;onEliminar:(id:any)=>void}) {
+  const translateX = useSharedValue(0);
+  const swipe = Gesture.Pan()
+  .onUpdate((e) => {
+    translateX.value = Math.min (0, e.translationX);
+  })
+  .onEnd ((e) => {
+    if (e.translationX < -100) {
+      onEliminar(comercio.id);
+    }
+    translateX.value = 0;
+  });
+  const style = useAnimatedStyle(() => ({
+    transform: [{translateX: translateX.value}],  
+  }));
+  return (
+    <GestureDetector gesture={swipe}>
+      <Animated.View style = {[styles.fila, style]}>
+        <Text>{comercio.nombre}</Text>
+      </Animated.View>
+    </GestureDetector>
+  );
+} 
 
 export interface Resena {
   id: string;
