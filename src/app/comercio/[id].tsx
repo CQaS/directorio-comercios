@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams } from "expo-router";
 import Button from "../../shared/ui/button";
 import { Promocion } from "../../tipos";
 import { buscarPromocionesPorComercio } from "../../service/promociones";
-
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle } from 'react-native-reanimated';
+import { CameraView, useCameraPermissions } from "expo-camera";
+import { registrarCanje } from "../../service/canjes";
 
 function filaFavorito ({comercio, onEliminar}: {comercio:any;onEliminar:(id:any)=>void}) {
   const translateX = useSharedValue(0);
@@ -35,6 +36,67 @@ function filaFavorito ({comercio, onEliminar}: {comercio:any;onEliminar:(id:any)
 
 export default function DetalleComercioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const [permisoCamara, solicitarPermisoCamara] = useCameraPermissions();
+  const [escanearQR, setEscanearQR] = useState(false);
+  const [resultadoQR, setResultadoQR] = useState('');
+  const procesarQR = async (data: string) => {
+  try {
+    const datos = JSON.parse(data);
+
+    if (
+      !datos.promocionId ||
+      !datos.comercioId ||
+      !datos.codigo
+    ) {
+      setResultadoQR('QR inválido');
+      return;
+    }
+
+    if (datos.comercioId !== id) {
+      setResultadoQR('Esta promoción no corresponde a este comercio');
+      return;
+    }
+
+    const promociones = await buscarPromocionesPorComercio(
+      datos.comercioId,
+    );
+    const promocion = promociones.find(
+      (promo) => promo.id === datos.promocionId,
+    );
+    
+    if (!promocion) {
+      setResultadoQR('La promoción no pertenece a este comercio');
+      return;
+    }
+    
+    const hoy = new Date();
+    const desde = new Date(promocion.desde);
+    const hasta = new Date(promocion.hasta);
+    
+    if (
+      !promocion.activa ||
+      hoy < desde ||
+      hoy > hasta
+    ) {
+      setResultadoQR('La promoción no está vigente');
+      return;
+    }
+
+    const registrado = await registrarCanje(
+      datos.promocionId,
+      datos.comercioId,
+      datos.codigo,
+    );
+
+    setResultadoQR(
+      registrado
+        ? 'Canje registrado correctamente!'
+        : 'Este código ya fue utilizado',
+    );
+  } catch {
+    setResultadoQR('El QR no tiene un formato válido');
+  }
+};
   
 
   const [listaPromociones, setListaPromociones] = useState<Promocion[]>([]);
@@ -69,6 +131,57 @@ export default function DetalleComercioScreen() {
           ubicación del comercio en Concepción del Uruguay.
         </Text>
       </View>
+
+<View style={styles.tarjetaFicha}>
+  <Text style={styles.titulo}>Registrar canje</Text>
+
+  <Pressable
+    onPress={async () => {
+      if (!permisoCamara?.granted) {
+        const permiso = await solicitarPermisoCamara();
+        if (!permiso.granted) return;
+      }
+
+      setResultadoQR('');
+      setEscanearQR(true);
+    }}
+    style={styles.botonEscanear}
+  >
+    <Text style={styles.textoBoton}>
+      Escanear QR del cliente
+    </Text>
+  </Pressable>
+
+  {resultadoQR !== '' && (
+    <Text style={styles.descripcion}>
+      Código leído: {resultadoQR}
+    </Text>
+  )}
+
+  {escanearQR && (
+    <View style={styles.contenedorCamara}>
+      <CameraView
+        style={styles.camara}
+        facing="back"
+        barcodeScannerSettings={{
+          barcodeTypes: ['qr'],
+        }}
+        onBarcodeScanned={({ data }) => {
+          setEscanearQR(false);
+          void procesarQR(data);
+        }}
+      />
+
+      <Pressable
+        onPress={() => setEscanearQR(false)}
+        style={styles.botonEscanear}
+      >
+        <Text style={styles.textoBoton}>Cancelar</Text>
+      </Pressable>
+    </View>
+  )}
+</View>
+
 
       {/* Promociones */}
       {listaPromociones.length > 0 && (
@@ -155,5 +268,27 @@ const styles = StyleSheet.create({
     color: "#334155",
     marginTop: 12,
     lineHeight: 20,
+  },
+  botonEscanear: {
+    backgroundColor: '#0B3A5D',
+    padding: 14,
+    borderRadius: 8,
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  textoBoton: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  contenedorCamara: {
+    marginTop: 16,
+    gap: 12,
+  },
+  camara: {
+    height: 300,
+    width: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
   },
 });

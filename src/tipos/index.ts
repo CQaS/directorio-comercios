@@ -41,8 +41,10 @@ export interface Rubro {
 export interface Promocion {
   id: string;
   comercioId: string;
+  rubro: string;
   titulo: string;
   detalle: string;
+  condiciones: string;
   descuento: number | null;
   desde: string;
   hasta: string;
