@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams } from "expo-router";
 import Button from "../../shared/ui/button";
@@ -9,6 +9,8 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle } from 'react-native-reanimated';
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { registrarCanje } from "../../service/canjes";
+import { guardarResena, eliminarResenaGuardada } from "../../service/resenas";
+import { obtenerMisResenas } from "../../service/resenas";
 
 function filaFavorito ({comercio, onEliminar}: {comercio:any;onEliminar:(id:any)=>void}) {
   const translateX = useSharedValue(0);
@@ -39,6 +41,19 @@ export default function DetalleComercioScreen() {
   const [permisoCamara, solicitarPermisoCamara] = useCameraPermissions();
   const [escanearQR, setEscanearQR] = useState(false);
   const [resultadoQR, setResultadoQR] = useState('');
+  const [resenas, setResenas] = useState<Resena[]>([
+    resena,
+    ...obtenerMisResenas("usuario-actual").filter(
+    (item) => item.comercioId === String(id)
+  ),
+]);
+  const [estrellasSeleccionadas, setEstrellasSeleccionadas] = useState<  1 | 2 | 3 | 4 | 5 >(5);
+  const resenasOrdenadas = ordenarResenas(resenas);
+  const promedioResenas = calcularPromedio(resenas);
+  const [comentarioNuevo, setComentarioNuevo] = useState("");
+  const [respuestaNueva, setRespuestaNueva] = useState("");
+  const [resenaEditando, setResenaEditando] = useState<string | null>(null);
+
   const procesarQR = async (data: string) => {
   try {
     const datos = JSON.parse(data);
@@ -119,8 +134,116 @@ export default function DetalleComercioScreen() {
     return <Text>Cargando...</Text>;
   }
 
+  
+function publicarResena() {
+  if (comentarioNuevo.trim() === "") {
+    return;
+  }
+
+if (resenaEditando !== null) {
+  const actualizada = resenas.find(
+    (item) => item.id === resenaEditando
+  );
+
+  if (actualizada) {
+    const resenaModificada = {
+      ...actualizada,
+      estrellas: estrellasSeleccionadas,
+      comentario: comentarioNuevo.trim(),
+    };
+
+    guardarResena(resenaModificada);
+
+    setResenas((anteriores) =>
+      anteriores.map((item) =>
+        item.id === resenaEditando ? resenaModificada : item
+      )
+    );
+  }
+
+  setResenaEditando(null);
+
+  } else {
+    const nuevaResena: Resena = {
+      id: Date.now().toString(),
+      comercioId: String(id),
+      usuarioId: "usuario-actual",
+      estrellas: estrellasSeleccionadas,
+      comentario: comentarioNuevo.trim(),
+      respuesta: null,
+      reportada: false,
+      creadaEn: new Date().toISOString(),
+      sincronizada: false,
+    };
+    guardarResena(nuevaResena);
+    console.log("Reseña publicada:", nuevaResena);
+    setResenas((anteriores) => [nuevaResena, ...anteriores]);
+  }
+  setComentarioNuevo("");
+  setEstrellasSeleccionadas(5);
+}
+
+function eliminarResena(resenaId: string) {
+  setResenas((anteriores) =>
+    anteriores.filter((item) => item.id !== resenaId),
+  );
+
+  eliminarResenaGuardada(resenaId);
+  console.log("Reseña eliminada:", resenaId);
+}
+
+function editarResena(resenaId: string) {
+  const resenaElegida = resenas.find(
+    (item) => item.id === resenaId
+  );
+
+  if (!resenaElegida) return;
+
+  setResenaEditando(resenaId);
+  setComentarioNuevo(resenaElegida.comentario);
+  setEstrellasSeleccionadas(resenaElegida.estrellas);
+}
+
+function reportarResena(resenaId: string) {
+  const resenaReportada = resenas.find(
+    (item) => item.id === resenaId
+  );
+
+  if (!resenaReportada) return;
+
+  const actualizada = {
+    ...resenaReportada,
+    reportada: true,
+  };
+
+  setResenas((anteriores) =>
+    anteriores.map((item) =>
+      item.id === resenaId ? actualizada : item
+    )
+  );
+
+  guardarResena(actualizada);
+}
+
+function responderResena(resenaId: string) {
+  if (respuestaNueva.trim() === "") {
+    return;
+  }
+
+  setResenas((anteriores) =>
+    anteriores.map((item) =>
+      item.id === resenaId && item.respuesta === null
+        ? { ...item, respuesta: respuestaNueva.trim() }
+        : item,
+    ),
+  );
+  setRespuestaNueva("");
+}
+
+
   return (
-    <SafeAreaView style={styles.contenedor}>
+  <SafeAreaView style={styles.contenedor}>
+    <ScrollView>
       {/* Botón Volver reutilizable */}
       <Button title="Volver" />
       <View style={styles.tarjetaFicha}>
@@ -196,15 +319,86 @@ export default function DetalleComercioScreen() {
           ))}
         </View>
       )}
+      
       <View style={styles.resena}>
-        <Text style={styles.subtitulo}> Reseña</Text>
-        <Text>{resena.estrellas}</Text>
-        <Text>{resena.comentario}</Text>
-        <Text>Respuesta del comercio:{resena.respuesta}</Text>
-      </View>
-    </SafeAreaView>
-  );
-}
+        <Text style={styles.subtitulo}>Reseñas del comercio</Text>
+        <Text style={styles.descripcion}>Tu calificación</Text>
+        <View style={styles.filaEstrellas}>
+          
+          {[1, 2, 3, 4, 5].map((numero) => (
+            <Pressable key={numero} onPress={() => setEstrellasSeleccionadas(numero as 1 | 2 | 3 | 4 | 5)
+            }
+            >
+              <Text style={styles.estrella}>
+                {numero <= estrellasSeleccionadas ? "★" : "☆"}
+                </Text>
+                </Pressable>
+              ))}
+              </View>
+              
+              <Text style={styles.descripcion}>Tu comentario</Text>
+              <TextInput 
+              style={styles.campoComentario}
+              placeholder="Escribí tu reseña..."
+              value={comentarioNuevo}
+              onChangeText={setComentarioNuevo}
+              multiline
+              />
+              <Pressable
+              style={styles.botonResena}
+              onPress={publicarResena}>
+                <Text style={styles.textoBotonResena}>
+                  {resenaEditando !== null ? "Guardar cambios" : "Publicar reseña"}</Text>
+                </Pressable>
+
+              <Text style={styles.descripcion}>Promedio: {promedioResenas.toFixed(1)} / 5 ⭐</Text>
+              {resenasOrdenadas.map((item) => (
+                <View key={item.id} style={styles.tarjetaFicha}>
+                  <Text style={styles.descripcion}>{"⭐".repeat(item.estrellas)}</Text>
+                  <Text style={styles.descripcion}>{item.comentario}</Text>
+                  <Pressable
+                  onPress={() => eliminarResena(item.id)}
+                  style={styles.botonEliminar}>
+                    <Text style={styles.textoEliminar}>Eliminar reseña</Text>
+                    </Pressable>
+                    <Pressable
+                    onPress={() => editarResena(item.id)}
+                    style={styles.botonEditar}>
+                      <Text style={styles.textoEditar}>Editar reseña</Text>
+                      </Pressable>
+                      <Pressable
+                      onPress={() => reportarResena(item.id)}
+                      style={styles.botonReportar}>
+                        <Text style={styles.textoReportar}>
+                          {item.reportada ? "Reseña reportada" : "Reportar reseña"}
+                          </Text>
+                          </Pressable>
+                          
+                          {item.respuesta ? (
+                            <Text style={styles.descripcion}>Respuesta del comercio: {item.respuesta}</Text>
+                          ) : (
+                          <>
+                          <TextInput
+                          style={styles.campoComentario}
+                          placeholder="Respuesta del comercio..."
+                          value={respuestaNueva}
+                          onChangeText={setRespuestaNueva}
+                          multiline
+                          />
+                          <Pressable
+                          style={styles.botonRespuesta}
+                          onPress={() => responderResena(item.id)}>
+                            <Text style={styles.textoBotonRespuesta}>Responder</Text>
+                            </Pressable>
+                            </>
+                          )}
+                          </View>
+                        ))}
+                        </View>
+                        </ScrollView>
+                        </SafeAreaView>
+                        );
+                      }
 
 export interface Resena {
   id: string;
@@ -230,6 +424,28 @@ const resena: Resena = {
   sincronizada: true,
 };
 
+function ordenarResenas(resenas: Resena[]): Resena[] {
+  return [...resenas].sort(
+    (a, b) =>
+      new Date(b.creadaEn).getTime() -
+      new Date(a.creadaEn).getTime(),
+  );
+}
+
+function calcularPromedio(resenas: Resena[]): number {
+  if (resenas.length === 0) {
+    return 0;
+  }
+
+  const total = resenas.reduce(
+    (suma, resena) => suma + resena.estrellas,
+    0,
+  );
+
+  return total / resenas.length;
+}
+
+
 const styles = StyleSheet.create({
   fila:{
     padding:16,
@@ -252,6 +468,62 @@ const styles = StyleSheet.create({
   resena: {
     marginTop: 20,
     padding: 15,
+  },
+  filaEstrellas: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginVertical: 8,
+  },
+  estrella: {
+    fontSize: 32,
+    color: "#F5B301",
+  },
+  campoComentario: {
+    borderWidth: 1,
+    borderColor: "#CCCCCC",
+    borderRadius: 8,
+    padding: 10,
+    minHeight: 90,
+    textAlignVertical: "top",
+    marginVertical: 8,
+  },
+  botonResena: {
+    backgroundColor: "#333333",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginVertical: 10,
+  },
+  textoBotonResena: {
+    color: "#FFFFFF",
+    fontWeight: "bold",
+  },
+  botonEliminar: {
+    marginTop: 8,
+    padding: 8,
+    alignSelf: "flex-start",
+  },
+  textoEliminar: {
+    color: "#C62828",
+    fontWeight: "bold",
+  },
+  botonEditar: {
+    marginTop: 4,
+    padding: 8,
+    alignSelf: "flex-start",
+  },
+  textoEditar: {
+    color: "#1565C0",
+    fontWeight: "bold",
+  },
+  botonReportar: {
+    marginTop: 4,
+    padding: 8,
+    alignSelf: "flex-start",
+  },
+  textoReportar: {
+    color: "#C62828",
   },
   titulo: {
     fontSize: 22,
@@ -290,5 +562,16 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 12,
     overflow: 'hidden',
+  },
+  botonRespuesta: {
+    backgroundColor: "#333333",
+    padding: 10,
+    borderRadius: 8,
+    alignItems: "center",
+    marginVertical: 8,
+  },
+  textoBotonRespuesta: {
+    color: "#FFFFFF",
+    fontWeight: "bold",
   },
 });

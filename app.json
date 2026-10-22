@@ -23,9 +23,9 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "@react-native-vector-icons/ionicons",
       "expo-image",
-      "expo-router"
+      "expo-router",
+      "expo-status-bar"
     ]
   }
 }

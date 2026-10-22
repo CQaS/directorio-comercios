@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Switch, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Ionicons from '@react-native-vector-icons/ionicons';
+import {Ionicons} from '@expo/vector-icons';
+import { router } from 'expo-router';
 
 export default function YoScreen() {
   
@@ -50,7 +51,7 @@ export default function YoScreen() {
             role="button"
             accessibilityLabel="Ver mis reseñas"
             hitSlop={10}
-            onPress={() => console.log('Ir a mis reseñas')}
+            onPress={() => router.push("/mis-resenas" as any)}
           >
             <View style={styles.rowLeft}>
               <Ionicons name="star-outline" size={22} color="#F0AD4E" />
