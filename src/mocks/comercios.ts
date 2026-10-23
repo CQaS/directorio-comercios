@@ -6,6 +6,7 @@ export const MOCK_RUBROS: Rubro[] = [
   { id: 'rub-ferreteria', nombre: 'Ferretería', icono: 'hammer-outline', color: '#7A5C3E', orden: 1 },
   { id: 'rub-gastronomia', nombre: 'Gastronomía', icono: 'restaurant-outline', color: '#E76F51', orden: 2 },
   { id: 'rub-indumentaria', nombre: 'Ropa', icono: 'shirt-outline', color: '#2A9D8F', orden: 3 },
+  { id: 'rub-servicios', nombre: 'Servicios', icono: 'service-outline', color: '#2A9D8F', orden: 4 },
 ];
 
 export const MOCK_COMERCIOS: Comercio[] = [
