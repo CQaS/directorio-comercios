@@ -1,40 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, } from "react-native";
+import { View, Text, StyleSheet, Image, Pressable, TextInput, ScrollView, } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams } from "expo-router";
 import Button from "../../shared/ui/button";
 import { Promocion } from "../../tipos";
 import { buscarPromocionesPorComercio } from "../../service/promociones";
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, ScrollView } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle } from 'react-native-reanimated';
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { registrarCanje } from "../../service/canjes";
 import { guardarResena, eliminarResenaGuardada } from "../../service/resenas";
 import { obtenerMisResenas } from "../../service/resenas";
-
-function filaFavorito ({comercio, onEliminar}: {comercio:any;onEliminar:(id:any)=>void}) {
-  const translateX = useSharedValue(0);
-  const swipe = Gesture.Pan()
-  .onUpdate((e) => {
-    translateX.value = Math.min (0, e.translationX);
-  })
-  .onEnd ((e) => {
-    if (e.translationX < -100) {
-      onEliminar(comercio.id);
-    }
-    translateX.value = 0;
-  });
-  const style = useAnimatedStyle(() => ({
-    transform: [{translateX: translateX.value}],
-  }));
-  return (
-    <GestureDetector gesture={swipe}>
-      <Animated.View style = {[styles.fila, style]}>
-        <Text>{comercio.nombre}</Text>
-      </Animated.View>
-    </GestureDetector>
-  );
-} 
 
 export default function DetalleComercioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -113,7 +89,7 @@ export default function DetalleComercioScreen() {
   }
 };
   
-
+  const [comercio, setComercio] = useState<any>({imagenes:[]});
   const [listaPromociones, setListaPromociones] = useState<Promocion[]>([]);
   const [cargando, setCargando] = useState<boolean>(true);
 
@@ -305,7 +281,6 @@ function responderResena(resenaId: string) {
   )}
 </View>
 
-
       {/* Promociones */}
       {listaPromociones.length > 0 && (
         <View style={styles.tarjetaFicha}>
@@ -399,6 +374,30 @@ function responderResena(resenaId: string) {
                         </SafeAreaView>
                         );
                       }
+
+function filaFavorito ({comercio, onEliminar}: {comercio:any;onEliminar:(id:any)=>void}) {
+  const translateX = useSharedValue(0);
+  const swipe = Gesture.Pan()
+  .onUpdate((e) => {
+    translateX.value = Math.min (0, e.translationX);
+  })
+  .onEnd ((e) => {
+    if (e.translationX < -100) {
+      onEliminar(comercio.id);
+    }
+    translateX.value = 0;
+  });
+  const style = useAnimatedStyle(() => ({
+    transform: [{translateX: translateX.value}],  
+  }));
+  return (
+    <GestureDetector gesture={swipe}>
+      <Animated.View style = {[styles.fila, style]}>
+        <Text>{comercio.nombre}</Text>
+      </Animated.View>
+    </GestureDetector>
+  );
+} 
 
 export interface Resena {
   id: string;
