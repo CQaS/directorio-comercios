@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
-import Ionicons from '@react-native-vector-icons/ionicons';
+import React from 'react';
+import { Ionicons } from '@react-native-vector-icons/ionicons';
 
 export default function TabsLayout() {
   return (
