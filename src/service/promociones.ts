@@ -18,11 +18,13 @@ export async function buscarPromocionesPorComercio(
     {
       id: "promo-123",
       comercioId,
+      rubro: "Gastronomía",
       titulo: "Promo 1",
       detalle: "Detalle de la promo 1",
+      condiciones: "Válido para consumo en el local",
       descuento: 10,
-      desde: "2023-08-01",
-      hasta: "2023-08-31",
+      desde: "2026-10-01",
+      hasta: "2026-10-20",
       imagenUrl: null,
       soloApp: false,
       usos: 10,
@@ -31,24 +33,58 @@ export async function buscarPromocionesPorComercio(
     {
       id: "promo-456",
       comercioId,
+      rubro: "Indumentaria",
       titulo: "Promo 2",
       detalle: "Detalle de la promo 2",
+      condiciones: "Presentar el código de la app al momento de pagar.",
       descuento: 20,
-      desde: "2023-08-01",
-      hasta: "2023-08-31",
+      desde: "2026-10-06",
+      hasta: "2026-10-31",
       imagenUrl: null,
-      soloApp: false,
+      soloApp: true,
       usos: 10,
       activa: true,
     },
     {
       id: "promo-789",
       comercioId,
+      rubro: "Ferretería",
       titulo: "Promo 3",
       detalle: "Detalle de la promo 3",
+      condiciones: "Válido para productos seleccionados.",
       descuento: 30,
-      desde: "2023-08-01",
-      hasta: "2023-08-31",
+      desde: "2026-10-15",
+      hasta: "2026-11-02",
+      imagenUrl: null,
+      soloApp: false,
+      usos: 10,
+      activa: true,
+    },
+    {
+      id: "promo-869",
+      comercioId,
+      rubro: "Servicios",
+      titulo: "Promo 4",
+      detalle: "Detalle de la promo 4",
+      condiciones: "Solicitar el descuento al contratar el servicio.",
+      descuento: 30,
+      desde: "2026-11-20",
+      hasta: "2026-12-10",
+      imagenUrl: null,
+      soloApp: false,
+      usos: 10,
+      activa: true,
+    },
+    {
+      id: "promo-576",
+      comercioId,
+      rubro: "Servicios",
+      titulo: "Promo 4",
+      detalle: "Detalle de la promo 4",
+      condiciones: "Requiere reserva previa.",
+      descuento: 30,
+      desde: "2026-10-17",
+      hasta: "2026-11-10",
       imagenUrl: null,
       soloApp: false,
       usos: 10,
@@ -76,3 +112,59 @@ export async function obtenerPromocionesPorId(id:string): Promise<Promocion | nu
   return promocion
   
 }
+
+export function
+clasificarPromociones(promociones: Promocion[]) {
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
+  const enSieteDias = new Date(hoy);
+  enSieteDias.setDate(hoy.getDate() + 7);
+
+  return {
+    vigentes: promociones.filter((promo) => {
+    const desde = new Date(promo.desde);
+    const hasta = new Date(promo.hasta);
+
+    return (
+      promo.activa &&
+      desde <= hoy &&
+      hasta >= hoy
+    );
+  }),
+
+  porVencer: promociones.filter((promo) => {
+    const hasta = new Date(promo.hasta);
+
+    return (
+      promo.activa &&
+      new Date(promo.desde) <= hoy &&
+      hasta >= hoy &&
+      hasta <= enSieteDias
+    );
+  }),
+
+  proximas: promociones.filter((promo) => {
+    const desde = new Date(promo.desde);
+
+    return (
+      promo.activa &&
+      desde > hoy &&
+      desde <= enSieteDias
+    );
+  }),
+
+}
+}
+
+export async function buscarPromocionesPorRubro(rubro: string): Promise<Promocion[]> {
+  const promociones = await
+  buscarPromociones();
+
+  return promociones.filter((promocion) => promocion.rubro.toLowerCase() === rubro.toLowerCase(),
+  );
+  
+}
+
+buscarPromocionesPorRubro
+
