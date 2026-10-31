@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams } from "expo-router";
@@ -8,9 +8,8 @@ import { buscarPromocionesPorComercio } from "../../service/promociones";
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle } from 'react-native-reanimated';
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { registrarCanje } from "../../service/canjes";
-import { guardarResena, eliminarResenaGuardada } from "../../service/resenas";
-import { obtenerMisResenas } from "../../service/resenas";
+import { validarCanjeEnLaApi } from "../../service/canjes";
+import { eliminarResenaEnLaApi, buscarResenasPorComercio, publicarResenaEnLaApi, editarResenaEnLaApi, reportarResenaEnLaApi, responderResenaEnLaApi } from "../../service/resenas";
 
 function filaFavorito ({comercio, onEliminar}: {comercio:any;onEliminar:(id:any)=>void}) {
   const translateX = useSharedValue(0);
@@ -41,12 +40,7 @@ export default function DetalleComercioScreen() {
   const [permisoCamara, solicitarPermisoCamara] = useCameraPermissions();
   const [escanearQR, setEscanearQR] = useState(false);
   const [resultadoQR, setResultadoQR] = useState('');
-  const [resenas, setResenas] = useState<Resena[]>([
-    resena,
-    ...obtenerMisResenas("usuario-actual").filter(
-    (item) => item.comercioId === String(id)
-  ),
-]);
+  const [resenas, setResenas] = useState<Resena[]>([]);
   const [estrellasSeleccionadas, setEstrellasSeleccionadas] = useState<  1 | 2 | 3 | 4 | 5 >(5);
   const resenasOrdenadas = ordenarResenas(resenas);
   const promedioResenas = calcularPromedio(resenas);
@@ -56,60 +50,17 @@ export default function DetalleComercioScreen() {
 
   const procesarQR = async (data: string) => {
   try {
-    const datos = JSON.parse(data);
+    const codigo = data;
 
-    if (
-      !datos.promocionId ||
-      !datos.comercioId ||
-      !datos.codigo
-    ) {
-      setResultadoQR('QR inválido');
-      return;
-    }
+    await validarCanjeEnLaApi(codigo);
 
-    if (datos.comercioId !== id) {
-      setResultadoQR('Esta promoción no corresponde a este comercio');
-      return;
-    }
-
-    const promociones = await buscarPromocionesPorComercio(
-      datos.comercioId,
-    );
-    const promocion = promociones.find(
-      (promo) => promo.id === datos.promocionId,
-    );
-    
-    if (!promocion) {
-      setResultadoQR('La promoción no pertenece a este comercio');
-      return;
-    }
-    
-    const hoy = new Date();
-    const desde = new Date(promocion.desde);
-    const hasta = new Date(promocion.hasta);
-    
-    if (
-      !promocion.activa ||
-      hoy < desde ||
-      hoy > hasta
-    ) {
-      setResultadoQR('La promoción no está vigente');
-      return;
-    }
-
-    const registrado = await registrarCanje(
-      datos.promocionId,
-      datos.comercioId,
-      datos.codigo,
-    );
-
+    setResultadoQR('¡Canje validado correctamente!');
+  } catch (error) {
     setResultadoQR(
-      registrado
-        ? 'Canje registrado correctamente!'
-        : 'Este código ya fue utilizado',
+      error instanceof Error
+        ? error.message
+        : 'No se pudo validar el canje.',
     );
-  } catch {
-    setResultadoQR('El QR no tiene un formato válido');
   }
 };
   
@@ -130,66 +81,74 @@ export default function DetalleComercioScreen() {
     }
   }, [id]);
 
+    useEffect(() => {
+      async function cargarResenas() {
+    try {
+      const resultado = await buscarResenasPorComercio(String(id));
+      setResenas(resultado);
+    } catch (error) {
+      console.log("Error al cargar reseñas:", error);
+    }
+  }
+
+  if (id) {
+    cargarResenas();
+  }
+}, [id]);
+
   if (cargando) {
     return <Text>Cargando...</Text>;
   }
 
   
-function publicarResena() {
+async function publicarResena() {
   if (comentarioNuevo.trim() === "") {
     return;
   }
 
-if (resenaEditando !== null) {
-  const actualizada = resenas.find(
-    (item) => item.id === resenaEditando
-  );
+  try {
+    if (resenaEditando !== null) {
+      const resenaModificada = await editarResenaEnLaApi(
+        resenaEditando,
+        estrellasSeleccionadas,
+        comentarioNuevo.trim()
+      );
 
-  if (actualizada) {
-    const resenaModificada = {
-      ...actualizada,
-      estrellas: estrellasSeleccionadas,
-      comentario: comentarioNuevo.trim(),
-    };
+      setResenas((anteriores) =>
+        anteriores.map((item) =>
+          item.id === resenaEditando ? resenaModificada : item
+        )
+      );
 
-    guardarResena(resenaModificada);
+      setResenaEditando(null);
+    } else {
+      const nuevaResena = await publicarResenaEnLaApi(
+        String(id),
+        estrellasSeleccionadas,
+        comentarioNuevo.trim()
+      );
 
-    setResenas((anteriores) =>
-      anteriores.map((item) =>
-        item.id === resenaEditando ? resenaModificada : item
-      )
-    );
+      setResenas((anteriores) => [nuevaResena, ...anteriores]);
+    }
+
+    setComentarioNuevo("");
+    setEstrellasSeleccionadas(5);
+  } catch (error) {
+    console.log("Error al guardar reseña:", error);
   }
-
-  setResenaEditando(null);
-
-  } else {
-    const nuevaResena: Resena = {
-      id: Date.now().toString(),
-      comercioId: String(id),
-      usuarioId: "usuario-actual",
-      estrellas: estrellasSeleccionadas,
-      comentario: comentarioNuevo.trim(),
-      respuesta: null,
-      reportada: false,
-      creadaEn: new Date().toISOString(),
-      sincronizada: false,
-    };
-    guardarResena(nuevaResena);
-    console.log("Reseña publicada:", nuevaResena);
-    setResenas((anteriores) => [nuevaResena, ...anteriores]);
-  }
-  setComentarioNuevo("");
-  setEstrellasSeleccionadas(5);
 }
 
-function eliminarResena(resenaId: string) {
-  setResenas((anteriores) =>
-    anteriores.filter((item) => item.id !== resenaId),
-  );
 
-  eliminarResenaGuardada(resenaId);
-  console.log("Reseña eliminada:", resenaId);
+async function eliminarResena(resenaId: string) {
+  try {
+    await eliminarResenaEnLaApi(resenaId);
+
+    setResenas((anteriores) =>
+      anteriores.filter((item) => item.id !== resenaId)
+    );
+  } catch (error) {
+    console.log("Error al eliminar reseña:", error);
+  }
 }
 
 function editarResena(resenaId: string) {
@@ -204,40 +163,41 @@ function editarResena(resenaId: string) {
   setEstrellasSeleccionadas(resenaElegida.estrellas);
 }
 
-function reportarResena(resenaId: string) {
-  const resenaReportada = resenas.find(
-    (item) => item.id === resenaId
-  );
+async function reportarResena(resenaId: string) {
+  try {
+    const resenaActualizada = await reportarResenaEnLaApi(resenaId);
 
-  if (!resenaReportada) return;
-
-  const actualizada = {
-    ...resenaReportada,
-    reportada: true,
-  };
-
-  setResenas((anteriores) =>
-    anteriores.map((item) =>
-      item.id === resenaId ? actualizada : item
-    )
-  );
-
-  guardarResena(actualizada);
+    setResenas((anteriores) =>
+      anteriores.map((item) =>
+        item.id === resenaId ? resenaActualizada : item
+      )
+    );
+  } catch (error) {
+    console.log("Error al reportar reseña:", error);
+  }
 }
 
-function responderResena(resenaId: string) {
+async function responderResena(resenaId: string) {
   if (respuestaNueva.trim() === "") {
     return;
   }
 
-  setResenas((anteriores) =>
-    anteriores.map((item) =>
-      item.id === resenaId && item.respuesta === null
-        ? { ...item, respuesta: respuestaNueva.trim() }
-        : item,
-    ),
-  );
-  setRespuestaNueva("");
+  try {
+    const resenaActualizada = await responderResenaEnLaApi(
+      resenaId,
+      respuestaNueva.trim()
+    );
+
+    setResenas((anteriores) =>
+      anteriores.map((item) =>
+        item.id === resenaId ? resenaActualizada : item
+      )
+    );
+
+    setRespuestaNueva("");
+  } catch (error) {
+    console.log("Error al responder reseña:", error);
+  }
 }
 
 
@@ -412,17 +372,6 @@ export interface Resena {
   sincronizada: boolean;
 }
 
-const resena: Resena = {
-  id: "res-2210",
-  comercioId: "con-118",
-  usuarioId: "usr-512",
-  estrellas: 5,
-  comentario: "Tenían el tornillo raro que no conseguía en ningún lado.",
-  respuesta: "¡Gracias Marta! Siempre a las órdenes.",
-  reportada: false,
-  creadaEn: "2026-09-10T17:05:00-03:00",
-  sincronizada: true,
-};
 
 function ordenarResenas(resenas: Resena[]): Resena[] {
   return [...resenas].sort(

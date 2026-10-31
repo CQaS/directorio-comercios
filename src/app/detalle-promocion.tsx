@@ -4,12 +4,13 @@ import { useLocalSearchParams, Stack } from 'expo-router';
 import { obtenerPromocionesPorId } from '../service/promociones';
 import { Promocion } from '../tipos';
 import QRCode  from 'react-native-qrcode-svg'
-import { contarCanjesPorPromocion } from '../service/canjes';
+import { generarCodigoPromocion } from '../service/canjes';
 
 export default function
 DetallePromocion() {
     const { id } = useLocalSearchParams <{ id: string} >();
-    const [codigoCliente] = useState( () => `CLI-$(Date.now()}-$ {Math.floor(Math.random() * 10000)}`);
+    const [codigoCliente, setCodigoCliente] = useState("");
+    const [errorCodigo, setErrorCodigo] = useState("");
     const [promocion, setPromocion] = useState <Promocion | null>(null);
     const [cargando, setCargando] = useState(true);
     const [totalCanjes, setTotalCanjes] = useState(0);
@@ -20,9 +21,16 @@ DetallePromocion() {
                 const resultado = await
                 obtenerPromocionesPorId(id);
                 setPromocion(resultado ?? null);
-                if (resultado) {
-                    const total = await contarCanjesPorPromocion(resultado.id);
-                    setTotalCanjes(total);
+                setTotalCanjes(resultado?.usos ?? 0);
+                if (resultado?.soloApp) {
+                    try {
+                        const codigoGenerado = await generarCodigoPromocion(resultado.id);
+                        setCodigoCliente(codigoGenerado);
+                        console.log("Código generado:", codigoGenerado);
+                    } catch (error) {
+                        setErrorCodigo("No se pudo generar el código. Verificá tu sesión.");
+                    }
+                
                 } else {
                     setTotalCanjes(0);
                 }
@@ -77,14 +85,12 @@ DetallePromocion() {
                     <View style={styles.contenedorQR}>
                     <Text style={styles.subtitulo}>Código QR de la promoción</Text>
 
-                    <QRCode
-                    value={JSON.stringify({
-                        promocionId: promocion.id,
-                        comercioId: promocion.comercioId,
-                        codigo: codigoCliente,
-                    })}
-                    size={200}
-                    />
+                    {codigoCliente !== "" && (
+                        <QRCode
+                        value={codigoCliente}
+                        size={200}
+                        />
+                        )}
 
                     <Text style={styles.texto}>Mostrá este código en el comercio.</Text>
                     </View>

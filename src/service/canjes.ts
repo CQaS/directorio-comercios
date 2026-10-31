@@ -59,3 +59,97 @@ const canjes = await obtenerCanjes();
 return canjes.filter(
     (canje) => canje.promocionId === promocionId).length;
 }
+
+const API_URL = "http://192.168.1.183:3000";
+
+
+export async function generarCodigoPromocion(
+    promocionId: string,
+): Promise<string> {
+    const token = await AsyncStorage.getItem("token");
+    
+    if (!token) {
+    throw new Error("No se encontró el token de sesión.");
+}
+
+const respuesta = await fetch(
+    `${API_URL}/promociones/${promocionId}/usos`,
+    {
+        method: "POST",
+        headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+    },
+    },
+);
+
+if (!respuesta.ok) {
+    throw new Error("No se pudo generar el código de la promoción.");
+}
+
+const resultado = await respuesta.json();
+return resultado.datos.codigo;
+}
+
+
+
+
+export async function obtenerCanjesDeLaApi(): Promise<Canje[]> {
+const token = await AsyncStorage.getItem("token");
+
+if (!token) {
+    throw new Error("No se encontró el token de sesión.");
+}
+
+const respuesta = await fetch(`${API_URL}/yo/usos`, {
+    headers: {
+        Authorization: `Bearer ${token}`,
+    },
+});
+
+if (!respuesta.ok) {
+    throw new Error("No se pudieron obtener los canjes.");
+}
+
+const resultado: {
+    datos: {
+        id: string;
+        promocionId: string;
+        usuarioId: string;
+        codigo: string;
+        validadoEn: string | null;
+    }[];
+} = await respuesta.json();
+
+return resultado.datos.map((uso) => ({
+    id: uso.id,
+    promocionId: uso.promocionId,
+    comercioId: "",
+    codigo: uso.codigo,
+    fecha: uso.validadoEn ?? "",
+}));
+}
+
+export async function validarCanjeEnLaApi(codigo: string): Promise<void> {
+    const token = await AsyncStorage.getItem("token");
+    
+    if (!token) {
+    throw new Error("No se encontró el token de sesión.");
+}
+
+const respuesta = await fetch(`${API_URL}/mi-comercio/usos/validar`, {
+    method: "POST",
+    headers: {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ codigo }),
+});
+
+if (!respuesta.ok) {
+    const resultado = await respuesta.json();
+    throw new Error(
+    resultado.mensaje || "No se pudo validar el canje."
+    );
+}
+}
