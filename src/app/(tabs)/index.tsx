@@ -1,46 +1,68 @@
-import React, { useState, useMemo } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  useWindowDimensions,
-} from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import {View, Text, TextInput, FlatList, Pressable, StyleSheet, useWindowDimensions,} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { MOCK_COMERCIOS } from '../../mocks/comercios';
+import { buscarComercios } from '../../service/comercios';
+import { Comercio } from '../../tipos';
 
 
-const COMERCIOS_PRUEBA = [
-  { id: '1', nombre: 'Panadería La Espiga', direccion: 'San Martín 450', rubroId: 'Gastronomía', abierto: true },
-  { id: '2', nombre: 'Ferretería Central', direccion: '9 de Julio 120', rubroId: 'Ferretería', abierto: false },
-  { id: '3', nombre: 'Boutique Urbana', direccion: 'Galarza 830', rubroId: 'Indumentaria', abierto: true },
-  { id: '4', nombre: 'Taller Mecánico Suárez', direccion: 'Bv. Los Constituyentes 210', rubroId: 'Servicios', abierto: true },
+const RUBROS = [
+  { id: 'todos', nombre: 'Todos' },
+  { id: 'rub-gastronomia', nombre: 'Gastronomía' },
+  { id: 'rub-indumentaria', nombre: 'Indumentaria' },
+  { id: 'rub-ferreteria', nombre: 'Ferretería' },
+  { id: 'rub-servicios', nombre: 'Servicios' },
+  { id: 'rub-hogar', nombre: 'Hogar' },
+  { id: 'rub-salud', nombre: 'Salud' },
+  { id: 'rub-tecnologia', nombre: 'Tecnología' },
+  { id: 'rub-libreria', nombre: 'Librería' },
+  { id: 'rub-otros', nombre: 'Otros' },
 ];
-
-const RUBROS = ['Todos', 'Gastronomía', 'Indumentaria', 'Ferretería', 'Servicios'];
 
 export default function DirectorioScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
+  const [comercios, setComercios] = useState<Comercio[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState('');
+
+useEffect(() => {
+  async function cargarComercios() {
+    try {
+      setCargando(true);
+      setError('');
+      const datos = await buscarComercios();
+      setComercios(datos);
+    } catch (error) {
+      setError('No se pudieron cargar los comercios.');
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  cargarComercios();
+}, []);
 
   const [busqueda, setBusqueda] = useState('');
-  const [rubroSeleccionado, setRubroSeleccionado] = useState('Todos');
+  const [rubroSeleccionado, setRubroSeleccionado] = useState('todos');
 
   const esPantallaAncha = width >= 768;
   const columnas = esPantallaAncha ? 2 : 1;
-
+  
   const comerciosFiltrados = useMemo(() => {
-    return COMERCIOS_PRUEBA.filter((comercio) => {
-      const coincideTexto = comercio.nombre
-        .toLowerCase()
-        .includes(busqueda.toLowerCase());
-      const coincideRubro =
-        rubroSeleccionado === 'Todos' || comercio.rubroId === rubroSeleccionado;
-      return coincideTexto && coincideRubro;
-    });
-  }, [busqueda, rubroSeleccionado]);
+  return comercios.filter((comercio) => {
+    const coincideTexto = comercio.nombre
+      .toLowerCase()
+      .includes(busqueda.toLowerCase());
+
+    const coincideRubro =
+      rubroSeleccionado === 'todos' ||
+      comercio.rubroId === rubroSeleccionado;
+
+    return coincideTexto && coincideRubro;
+  });
+}, [comercios, busqueda, rubroSeleccionado]);
 
   return (
     <SafeAreaView style={styles.contenedorPrincipal}>
@@ -56,6 +78,8 @@ export default function DirectorioScreen() {
           style={styles.inputBuscador}
         />
       </View>
+      {cargando && <Text>Cargando comercios...</Text>}
+      {!cargando && error !== '' && <Text>{error}</Text>}
 
       {/* Chips horizontales condicionales */}
       <View style={styles.contenedorChips}>
@@ -63,18 +87,18 @@ export default function DirectorioScreen() {
           horizontal
           showsHorizontalScrollIndicator={false}
           data={RUBROS}
-          keyExtractor={(item) => item}
+          keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listaChips}
           renderItem={({ item }) => {
-            const activo = rubroSeleccionado === item;
+            const activo = rubroSeleccionado === item.id;
             return (
               <Pressable
                 role="button"
-                onPress={() => setRubroSeleccionado(item)}
+                onPress={() => setRubroSeleccionado(item.id)}
                 style={[styles.chip, activo && styles.chipActivo]}
               >
                 <Text style={[styles.textoChip, activo && styles.textoChipActivo]}>
-                  {item}
+                  {item.nombre}
                 </Text>
               </Pressable>
             );
@@ -101,25 +125,12 @@ export default function DirectorioScreen() {
           >
             <View style={styles.tarjetaCabecera}>
               <Text style={styles.nombreComercio}>{item.nombre}</Text>
-              <View
-                style={[
-                  styles.badgeEstado,
-                  item.abierto ? styles.badgeAbierto : styles.badgeCerrado,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.textoBadge,
-                    item.abierto ? styles.textoAbierto : styles.textoCerrado,
-                  ]}
-                >
-                  {item.abierto ? 'Abierto' : 'Cerrado'}
-                </Text>
-              </View>
             </View>
 
             <Text style={styles.direccion}>{item.direccion}</Text>
-            <Text style={styles.rubro}>{item.rubroId}</Text>
+            <Text style={styles.rubro}>
+              {RUBROS.find((rubro) => rubro.id === item.rubroId)?.nombre ?? 'Otros'}
+              </Text>
           </Pressable>
         )}
       />

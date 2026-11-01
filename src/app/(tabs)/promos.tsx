@@ -2,21 +2,23 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useEffect, useState } from 'react';
 import { buscarPromociones, clasificarPromociones, buscarPromocionesPorRubro } from '../../service/promociones';
 import type { Promocion } from '../../tipos';
-import { usePathname, useRouter } from 'expo-router';
-import { id } from 'zod/v4/locales';
-import { contarCanjesPorPromocion } from '../../service/canjes';
+import { useRouter } from 'expo-router';
 
 export default function PantallaPromos() {
   const router = useRouter();
   const [promociones, setPromociones] = useState<Promocion[]>([]);
   const [rubroSeleccionado, setRubroSeleccionado] = useState<string | null>(null);
-  const [canjesPorPromocion, setCanjesPorPromocion] = useState<Record<string, number>>({});
   const rubros = [
-    "Ferretería",
-    "Gastronomía",
-    "Indumentaria",
-    "Servicios",
-  ]
+  "Gastronomía",
+  "Indumentaria",
+  "Hogar",
+  "Ferretería y construcción",
+  "Salud y farmacia",
+  "Servicios",
+  "Tecnología",
+  "Librería",
+  "Otros",
+];
   
 useEffect(() => {
   async function cargarPromociones() {
@@ -26,20 +28,7 @@ useEffect(() => {
 
     setPromociones(resultado);
 
-    const contadores = await Promise.all(
-      resultado.map(async (promo) => ({
-        id: promo.id,
-        cantidad: await contarCanjesPorPromocion(promo.id),
-      }))
-    );
-
-    const nuevoEstado: Record<string, number> = {};
-
-    contadores.forEach((contador) => {
-      nuevoEstado[contador.id] = contador.cantidad;
-    });
-
-    setCanjesPorPromocion(nuevoEstado);
+    
   }
 
   cargarPromociones();
@@ -80,7 +69,7 @@ useEffect(() => {
         <Text>{promo.detalle}</Text>
         <Text>Descuento: {promo.descuento}</Text>
         <Text>Válido hasta: {promo.hasta}</Text>
-        <Text>Canjes registrados: {canjesPorPromocion[promo.id] ?? 0}</Text>
+        <Text>Canjes registrados: {promo.usos}</Text>
         </Pressable>
       ))}
 
@@ -94,7 +83,7 @@ useEffect(() => {
       >
         <Text style = {styles.nombre}>{promo.titulo}</Text>
         <Text>Válido hasta: {promo.hasta}</Text>
-        <Text>Canjes registrados: {canjesPorPromocion[promo.id] ?? 0}</Text>
+        <Text>Canjes registrados: {promo.usos}</Text>
         </Pressable>
       ))}
 
@@ -109,7 +98,7 @@ useEffect(() => {
         <Text style = {styles.nombre}>{promo.titulo}</Text>
         <Text>Descuento: {promo.descuento}</Text>
         <Text>Válido hasta: {promo.hasta}</Text>
-        <Text>Canjes registrados: {canjesPorPromocion[promo.id] ?? 0}</Text>
+        <Text>Canjes registrados: {promo.usos}</Text>
         </Pressable>
       ))}
     </ScrollView>
