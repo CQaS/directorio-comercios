@@ -1,10 +1,15 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable  } from 'react-native';
 import { useEffect, useState } from 'react';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { obtenerPromocionesPorId } from '../service/promociones';
 import { Promocion } from '../tipos';
 import QRCode  from 'react-native-qrcode-svg'
 import { contarCanjesPorPromocion } from '../service/canjes';
+import {
+    guardarPromocion,
+    quitarPromocion,
+    esPromocionGuardada,
+} from '../service/avisos';
 
 export default function
 DetallePromocion() {
@@ -13,6 +18,8 @@ DetallePromocion() {
     const [promocion, setPromocion] = useState <Promocion | null>(null);
     const [cargando, setCargando] = useState(true);
     const [totalCanjes, setTotalCanjes] = useState(0);
+    const [guardada, setGuardada] = useState(false);
+    const [actualizandoGuardado, setActualizandoGuardado] = useState(false);
 
     useEffect(() => {
         async function cargarPromocion() {
@@ -20,6 +27,12 @@ DetallePromocion() {
                 const resultado = await
                 obtenerPromocionesPorId(id);
                 setPromocion(resultado ?? null);
+
+                if (resultado) {
+                    const estaGuardada = await esPromocionGuardada(resultado.id);
+                    setGuardada(estaGuardada);
+                }
+
                 if (resultado) {
                     const total = await contarCanjesPorPromocion(resultado.id);
                     setTotalCanjes(total);
@@ -35,6 +48,26 @@ DetallePromocion() {
 
         cargarPromocion();
     }, [id]);
+
+    async function cambiarPromocionGuardada() {
+        if (!promocion) return;
+
+        setActualizandoGuardado(true);
+
+        try {
+            if (guardada) {
+                await quitarPromocion(promocion.id);
+                setGuardada(false);
+            } else {
+                await guardarPromocion(promocion);
+                setGuardada(true);
+            }
+        } catch (error) {
+            console.error('Error al guardar la promoción:', error);
+        } finally {
+            setActualizandoGuardado(false);
+        }
+    }
 
     if (cargando) {
         return <ActivityIndicator size={"large"} style= {styles.cargando} />;
@@ -53,6 +86,18 @@ DetallePromocion() {
             <Stack.Screen options={{title: "Detalle de promoción", headerShown: true}}/>
 
             <Text style ={styles.titulo}>{promocion.titulo}</Text>
+
+            <Pressable
+            onPress={cambiarPromocionGuardada}
+            disabled={actualizandoGuardado}
+            style={styles.botonGuardado}
+            >
+                <Text style={styles.textoBotonGuardado}>
+                    {actualizandoGuardado
+                    ? 'Actualizando...' : guardada ? 'Quitar de guardadas' :
+                    'Guardar de promoción'}
+                </Text>
+            </Pressable>
             <Text style={styles.descuento}>Descuento: {promocion.descuento}%</Text>
 
             <Text style={styles.subtitulo}>Descripción</Text>
@@ -97,6 +142,20 @@ const styles = StyleSheet.create({
     contenedor: {
         padding: 20,
         gap: 12,
+    },
+
+    botonGuardado: {
+        backgroundColor: '#2563EB',
+        padding: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginVertical: 10,
+    },
+
+    textoBotonGuardado: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 
     cargando: {

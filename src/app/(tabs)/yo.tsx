@@ -1,13 +1,74 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Switch, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {Ionicons} from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { obtenerFavoritos, quitarFavorito } from '../../service/favoritos';
+import { obtenerPreferencias, guardarPreferencias } from '../../service/notificaciones';
+import { reprogramarRecordatoriosPendientes } from '../../service/avisos';
 
 export default function YoScreen() {
   
   const [avisosActivos, setAvisosActivos] = useState(true);
   const [rol, setRol] = useState<'vecino' | 'comercio'>('vecino');
+
+  const[cantidadFavoritos, setCantidadFavoritos] = useState(0);
+
+  useFocusEffect(
+    useCallback(() =>{
+      let activo =true;
+
+      const cargarCantidad = async() => {
+        try {
+        const favoritos = await
+        obtenerFavoritos();
+
+        const respuesta = await fetch(
+          'http://192.168.1.42:3000/comercios?pagina=1&porPagina=1000'
+        );
+
+        if (!respuesta.ok) {
+          throw new Error('No se pudieron cargar los comercios');
+        }
+
+        const resultado = await respuesta.json();
+
+        const favoritosValidos = favoritos.filter(id =>
+          resultado.datos.some((comercio:any) =>
+          comercio.id === id)
+        );
+
+        for (const id of favoritos) {
+          if (!favoritosValidos.includes(id)) {
+            await quitarFavorito(id);
+          }
+        }
+
+        if (activo) {
+          setCantidadFavoritos(favoritosValidos.length);
+        }
+      } catch (error) {
+        console.error('Error al contar favoritos:', error);
+      }
+    };   
+
+      cargarCantidad();
+
+      return() => {
+        activo = false;
+      };
+    }, [])
+  );
+
+  useEffect(() => {
+    const cargarPreferencias = async() => {
+      const preferencias = await obtenerPreferencias();
+
+      setAvisosActivos(preferencias.avisosActivos);
+    };
+
+    cargarPreferencias();
+  }, []);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
@@ -35,11 +96,11 @@ export default function YoScreen() {
             role="button"
             accessibilityLabel="Ver comercios favoritos"
             hitSlop={10}
-            onPress={() => console.log('Ir a favoritos')}
+            onPress={() => router.push('/favoritos' as any)}
           >
             <View style={styles.rowLeft}>
               <Ionicons name="heart-outline" size={22} color="#D9534F" />
-              <Text style={styles.rowText}>Comercios Favoritos (1)</Text>
+              <Text style={styles.rowText}>Comercios Favoritos ({cantidadFavoritos})</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#8E8E93" />
           </Pressable>
@@ -59,6 +120,23 @@ export default function YoScreen() {
             </View>
             <Ionicons name="chevron-forward" size={20} color="#8E8E93" />
           </Pressable>
+
+          <View style={styles.divider}/>
+
+          <Pressable
+          style={styles.rowItem}
+          role= "button"
+          accessibilityLabel= "Ver promociones guardadas"
+          onPress={() => router.push('/promociones-guardadas' as any)}>
+            <View style={styles.rowLeft}>
+              <Ionicons
+              name="bookmark-outline" size={22}
+              color="#0B3A5D" />
+              <Text style={styles.rowText}>Promociones guardadas</Text>
+            </View>
+            <Ionicons name="chevron-forward"
+            size={20} color="#8E8E93" />
+          </Pressable>
         </View>
 
         {/* Sección: Avisos y Notificaciones */}
@@ -74,10 +152,56 @@ export default function YoScreen() {
             </View>
             <Switch
               value={avisosActivos}
-              onValueChange={setAvisosActivos}
+              onValueChange={async (nuevoValor) =>{
+                setAvisosActivos(nuevoValor);
+                const preferencias = await obtenerPreferencias();
+                await guardarPreferencias({
+                  ...preferencias,
+                  avisosActivos:nuevoValor,
+                });
+
+                if (nuevoValor) {
+                  await reprogramarRecordatoriosPendientes();
+                }
+              }}
               trackColor={{ false: '#D8E0E8', true: '#0B3A5D' }}
             />
           </View>
+
+          <Pressable
+          style={styles.rowItem}
+          onPress={() => router.push('/avisos' as any)}>
+            <View
+            style={styles.rowLeft}>
+              <Ionicons
+              name="notifications"
+              size={22}
+              color="#0B3A5D" />
+              <Text style={styles.rowText}>Ver avisos</Text>
+            </View>
+            <Ionicons
+            name="chevron-forward"
+            size={20}
+            color="#8E8E93" />
+          </Pressable>
+
+          
+      <View style={styles.rowItem}>
+        <View style={styles.rowLeft}>
+          <Ionicons name="pricetags-outline" size={22} color="#0B3A5D" />
+        <View>
+          <Text style={styles.rowText}>Rubros de interés</Text>
+          <Text style={styles.rowSubtext}>
+        Elegí qué promociones querés recibir
+      </Text>
+        </View>
+      </View>
+
+  <Pressable onPress={() => router.push('/rubros-interes' as any)}>
+    <Text style={styles.rowText}>Configurar</Text>
+  </Pressable>
+</View>
+
         </View>
 
         {/* Simulador de cambio de rol para probar vista de comercio */}

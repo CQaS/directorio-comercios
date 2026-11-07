@@ -3,6 +3,13 @@ import { Promocion } from "../tipos";
 export async function buscarPromocionesPorComercio(
   comercioId: string,
 ): Promise<Promocion[]> {
+
+  const promociones = await buscarPromociones();
+
+  return promociones.filter(
+    (promocion) => promocion.comercioId === comercioId
+  );
+
   // Implementación de la función asíncrona cuando tengamos la api real. Por ahora, devolvemos datos simulados.
 
   /* const respuesta = await fetch(
@@ -17,7 +24,7 @@ export async function buscarPromocionesPorComercio(
   return [
     {
       id: "promo-123",
-      comercioId,
+      comercioId:"1",
       rubro: "Gastronomía",
       titulo: "Promo 1",
       detalle: "Detalle de la promo 1",
@@ -32,7 +39,7 @@ export async function buscarPromocionesPorComercio(
     },
     {
       id: "promo-456",
-      comercioId,
+      comercioId: "2",
       rubro: "Indumentaria",
       titulo: "Promo 2",
       detalle: "Detalle de la promo 2",
@@ -47,7 +54,7 @@ export async function buscarPromocionesPorComercio(
     },
     {
       id: "promo-789",
-      comercioId,
+      comercioId: "3",
       rubro: "Ferretería",
       titulo: "Promo 3",
       detalle: "Detalle de la promo 3",
@@ -62,7 +69,7 @@ export async function buscarPromocionesPorComercio(
     },
     {
       id: "promo-869",
-      comercioId,
+      comercioId: "4",
       rubro: "Servicios",
       titulo: "Promo 4",
       detalle: "Detalle de la promo 4",
@@ -77,7 +84,7 @@ export async function buscarPromocionesPorComercio(
     },
     {
       id: "promo-576",
-      comercioId,
+      comercioId: "5",
       rubro: "Servicios",
       titulo: "Promo 4",
       detalle: "Detalle de la promo 4",
@@ -96,9 +103,24 @@ export async function buscarPromocionesPorComercio(
 
 export async function buscarPromociones(): Promise<Promocion[]> {
 
-  return await
-  buscarPromocionesPorComercio("");
+  try {
+    const respuesta = await fetch(
+      'http://192.168.1.42:3000/promociones'
+    );
+
+    if (!respuesta.ok) {
+      throw new Error('No se pudieron obtener las promociones');
+    }
+
+    const resultado = await respuesta.json();
+
+    return resultado.datos;
+  } catch (error) {
+    console.error('Error al buscar promociones:', error);
+    return [];
+  }
 }
+
 
 export async function obtenerPromocionesPorId(id:string): Promise<Promocion | null> {
   const promociones = await
@@ -158,13 +180,38 @@ clasificarPromociones(promociones: Promocion[]) {
 }
 
 export async function buscarPromocionesPorRubro(rubro: string): Promise<Promocion[]> {
-  const promociones = await
-  buscarPromociones();
+  try {
+    const promociones = await buscarPromociones();
 
-  return promociones.filter((promocion) => promocion.rubro.toLowerCase() === rubro.toLowerCase(),
-  );
-  
+    const respuesta = await fetch(
+      'http://192.168.1.42:3000/comercios'
+    );
+
+    if (!respuesta.ok) {
+      throw new Error('No se pudieron cargar los comercios');
+  }
+
+  const resultado = await respuesta.json();
+
+    const nombresRubros: Record<string, string> = {
+      'rub-gastronomia': 'Gastronomía',
+      'rub-ferreteria': 'Ferretería',
+      'rub-indumentaria': 'Indumentaria',
+      'rub-servicios': 'Servicios',
+    };
+
+    return promociones.filter((promo) => {
+      const comercio = resultado.datos.find(
+        (item: any) => item.id === promo.comercioId
+      );
+
+      const nombreRubro = nombresRubros[comercio?.rubroId];
+
+      return nombreRubro?.toLowerCase() === rubro.toLowerCase();
+    });
+  } catch (error) {
+    console.error('Error al buscar promociones por rubro:', error);
+    return [];
+  }
 }
-
-buscarPromocionesPorRubro
 

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,17 +10,44 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { fa } from 'zod/v4/locales';
 
-
-const COMERCIOS_PRUEBA = [
-  { id: '1', nombre: 'Panadería La Espiga', direccion: 'San Martín 450', rubroId: 'Gastronomía', abierto: true },
-  { id: '2', nombre: 'Ferretería Central', direccion: '9 de Julio 120', rubroId: 'Ferretería', abierto: false },
-  { id: '3', nombre: 'Boutique Urbana', direccion: 'Galarza 830', rubroId: 'Indumentaria', abierto: true },
-  { id: '4', nombre: 'Taller Mecánico Suárez', direccion: 'Bv. Los Constituyentes 210', rubroId: 'Servicios', abierto: true },
+const RUBROS = [
+  { id: 'Todos', nombre: 'Todos' },
+  { id: 'rub-gastronomia', nombre: 'Gastronomía' },
+  { id: 'rub-indumentaria', nombre: 'Indumentaria' },
+  { id: 'rub-hogar', nombre: 'Hogar' },
+  { id: 'rub-ferreteria', nombre: 'Ferretería y construcción' },
+  { id: 'rub-salud', nombre: 'Salud y farmacia' },
+  { id: 'rub-servicios', nombre: 'Servicios' },
+  { id: 'rub-tecnologia', nombre: 'Tecnología' },
+  { id: 'rub-libreria', nombre: 'Librería' },
+  { id: 'rub-otros', nombre: 'Otros' },
 ];
 
-const RUBROS = ['Todos', 'Gastronomía', 'Indumentaria', 'Ferretería', 'Servicios'];
+function estaAbierto(horarios: any[]) {
+  if (!horarios || horarios.length === 0) {
+    return false;
+  }
 
+  const ahora = new Date();
+  const diaActual = ahora.getDay();
+  const horaActual = ahora.getHours() * 60 + ahora.getMinutes();
+
+  return horarios.some((horario) => {
+    if (horario.dia !== diaActual) {
+      return false;
+    }
+
+    const [horaAbre, minutoAbre] = horario.abre.split(':').map(Number);
+    const [horaCierra, minutoCierra] = horario.cierra.split(':').map(Number);
+
+    const apertura = horaAbre * 60 + minutoAbre;
+    const cierre = horaCierra * 60 + minutoCierra;
+
+    return horaActual >= apertura && horaActual < cierre;
+  });
+}
 export default function DirectorioScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -28,11 +55,35 @@ export default function DirectorioScreen() {
   const [busqueda, setBusqueda] = useState('');
   const [rubroSeleccionado, setRubroSeleccionado] = useState('Todos');
 
+  const [comercios, setComercios] = useState<any[]>([]);
+  useEffect(() => {
+    async function cargarComercios() {
+      try {
+        const respuesta = await fetch(
+          'http://192.168.1.42:3000/comercios'
+        );
+
+        if (!respuesta.ok) {
+          const errorTexto = await respuesta.text();
+          console.log('ERROR AOI:', respuesta.status, errorTexto);
+          throw new Error('No se pudieron cargar los comercios');
+        }
+
+        const datos = await respuesta.json();
+        setComercios(datos.datos);
+      } catch (error) {
+        console.error('Error al cargar comercios:', error);
+      }
+    }
+
+    cargarComercios();
+  }, []);
+
   const esPantallaAncha = width >= 768;
   const columnas = esPantallaAncha ? 2 : 1;
 
   const comerciosFiltrados = useMemo(() => {
-    return COMERCIOS_PRUEBA.filter((comercio) => {
+    return comercios.filter((comercio) => {
       const coincideTexto = comercio.nombre
         .toLowerCase()
         .includes(busqueda.toLowerCase());
@@ -63,18 +114,18 @@ export default function DirectorioScreen() {
           horizontal
           showsHorizontalScrollIndicator={false}
           data={RUBROS}
-          keyExtractor={(item) => item}
+          keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listaChips}
           renderItem={({ item }) => {
-            const activo = rubroSeleccionado === item;
+            const activo = rubroSeleccionado === item.id;
             return (
               <Pressable
                 role="button"
-                onPress={() => setRubroSeleccionado(item)}
+                onPress={() => setRubroSeleccionado(item.id)}
                 style={[styles.chip, activo && styles.chipActivo]}
               >
                 <Text style={[styles.textoChip, activo && styles.textoChipActivo]}>
-                  {item}
+                  {item.nombre}
                 </Text>
               </Pressable>
             );
@@ -104,16 +155,16 @@ export default function DirectorioScreen() {
               <View
                 style={[
                   styles.badgeEstado,
-                  item.abierto ? styles.badgeAbierto : styles.badgeCerrado,
+                  estaAbierto(item.horarios) ? styles.badgeAbierto : styles.badgeCerrado,
                 ]}
               >
                 <Text
                   style={[
                     styles.textoBadge,
-                    item.abierto ? styles.textoAbierto : styles.textoCerrado,
+                    estaAbierto(item.horarios) ? styles.textoAbierto : styles.textoCerrado,
                   ]}
                 >
-                  {item.abierto ? 'Abierto' : 'Cerrado'}
+                  {estaAbierto(item.horarios) ? 'Abierto' : 'Cerrado'}
                 </Text>
               </View>
             </View>
