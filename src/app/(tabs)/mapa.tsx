@@ -1,21 +1,32 @@
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Linking, ScrollView, FlatList } from 'react-native';
-import { useEffect, useState } from 'react';
-import { WebView } from 'react-native-webview';
-import * as Location from 'expo-location';
-import { Comercio } from '../../tipos';
-
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+  Linking,
+  ScrollView,
+  FlatList,
+} from "react-native";
+const urlBase = process.env.EXPO_PUBLIC_API_URL;
+import { useEffect, useState } from "react";
+import { WebView } from "react-native-webview";
+import * as Location from "expo-location";
+import { Comercio } from "../../tipos";
 
 export default function PantallaMapa() {
-  const [ubicacionUsuario, setUbicacionUsuario] = useState<Location.LocationObjectCoords | null>(null);
+  const [ubicacionUsuario, setUbicacionUsuario] =
+    useState<Location.LocationObjectCoords | null>(null);
   const [cargando, setCargando] = useState<boolean>(true);
   const [comercios, setComercios] = useState<Comercio[]>([]);
-  const [rubroSeleccionado, setRubroSeleccionado] = useState<string | null>(null);
+  const [rubroSeleccionado, setRubroSeleccionado] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     (async () => {
-
       let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
+      if (status === "granted") {
         let location = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
         });
@@ -23,33 +34,43 @@ export default function PantallaMapa() {
       }
 
       try {
-        const respuesta = await fetch('http://192.168.1.42:3000/comercios?pagina=1&porPagina=1000');
+        const respuesta = await fetch(
+          `${urlBase}/comercios?pagina=1&porPagina=1000`,
+        );
         const datos = await respuesta.json();
-        
+
         setComercios(datos.datos);
-        
       } catch (error) {
-        console.error('Error al cargar los comercios desde la API:', error);
+        console.error("Error al cargar los comercios desde la API:", error);
       } finally {
         setCargando(false);
       }
     })();
   }, []);
 
-  
-  const calcularDistancia = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const calcularDistancia = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ) => {
     const dLat = (lat2 - lat1) * (Math.PI / 180);
     const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a = 
+    const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      Math.cos(lat1 * (Math.PI / 180)) *
+        Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return 6371 * c; 
+    return 6371 * c;
   };
 
-  
-  const abrirMapaExterno = (latitud: number, longitud: number, modo: 'walking' | 'driving') => {
+  const abrirMapaExterno = (
+    latitud: number,
+    longitud: number,
+    modo: "walking" | "driving",
+  ) => {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${latitud},${longitud}&travelmode=${modo}`;
     Linking.openURL(url);
   };
@@ -63,42 +84,48 @@ export default function PantallaMapa() {
     );
   }
 
-  
   const latitude = -32.4827;
-  const longitude = -58.2370;
+  const longitude = -58.237;
 
-  
-  const comerciosFiltradosOrdenados = (Array.isArray(comercios) ? comercios: [])
-    .filter((c) => c && (rubroSeleccionado ? c.rubroId === rubroSeleccionado : true))
+  const comerciosFiltradosOrdenados = (
+    Array.isArray(comercios) ? comercios : []
+  )
+    .filter(
+      (c) => c && (rubroSeleccionado ? c.rubroId === rubroSeleccionado : true),
+    )
     .map((comercio) => {
       const distancia = comercio.coordenadas
-        ? calcularDistancia(latitude,longitude, comercio.coordenadas.latitud, comercio.coordenadas.longitud)
+        ? calcularDistancia(
+            latitude,
+            longitude,
+            comercio.coordenadas.latitud,
+            comercio.coordenadas.longitud,
+          )
         : 0;
       return { ...comercio, distancia };
     })
     .sort((a, b) => a.distancia - b.distancia);
 
-    
-const datosMapa = JSON.stringify({
-  latitude,
-  longitude,
-  usuario: {
-        latitude: -32.4827,
-        longitude: -58.2370,
-      },
+  const datosMapa = JSON.stringify({
+    latitude,
+    longitude,
+    usuario: {
+      latitude: -32.4827,
+      longitude: -58.237,
+    },
 
-  comercios: comerciosFiltradosOrdenados
-    .filter((c) => c.coordenadas)
-    .map((c) => ({
-      id: c.id,
-      nombre: c.nombre,
-      direccion: c.direccion,
-      latitud: c.coordenadas!.latitud,
-      longitud: c.coordenadas!.longitud,
-    })),
-}).replace(/</g, '\\u003c');
+    comercios: comerciosFiltradosOrdenados
+      .filter((c) => c.coordenadas)
+      .map((c) => ({
+        id: c.id,
+        nombre: c.nombre,
+        direccion: c.direccion,
+        latitud: c.coordenadas!.latitud,
+        longitud: c.coordenadas!.longitud,
+      })),
+  }).replace(/</g, "\\u003c");
 
-const htmlMapa = `
+  const htmlMapa = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -149,149 +176,184 @@ const htmlMapa = `
 </html>
 `;
 
-
   return (
     <View style={styles.contenedor}>
-    
       <View style={styles.barraFiltrosContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollFiltros}>
-          <TouchableOpacity 
-            style={[styles.botonFiltro, rubroSeleccionado === null && styles.botonFiltroActivo]}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.scrollFiltros}
+        >
+          <TouchableOpacity
+            style={[
+              styles.botonFiltro,
+              rubroSeleccionado === null && styles.botonFiltroActivo,
+            ]}
             onPress={() => setRubroSeleccionado(null)}
           >
-            <Text style={[styles.textoFiltro, rubroSeleccionado === null && styles.textoFiltroActivo]}>Todos</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.botonFiltro, rubroSeleccionado === 'rub-ferreteria' && styles.botonFiltroActivo]}
-            onPress={() => setRubroSeleccionado('rub-ferreteria')}
-          >
-            <Text style={[styles.textoFiltro, rubroSeleccionado === 'rub-ferreteria' && styles.textoFiltroActivo]}>Ferretería</Text>
+            <Text
+              style={[
+                styles.textoFiltro,
+                rubroSeleccionado === null && styles.textoFiltroActivo,
+              ]}
+            >
+              Todos
+            </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.botonFiltro, rubroSeleccionado === 'rub-gastronomia' && styles.botonFiltroActivo]}
-            onPress={() => setRubroSeleccionado('rub-gastronomia')}
+          <TouchableOpacity
+            style={[
+              styles.botonFiltro,
+              rubroSeleccionado === "rub-ferreteria" &&
+                styles.botonFiltroActivo,
+            ]}
+            onPress={() => setRubroSeleccionado("rub-ferreteria")}
           >
-            <Text style={[styles.textoFiltro, rubroSeleccionado === 'rub-gastronomia' && styles.textoFiltroActivo]}>Gastronomía</Text>
+            <Text
+              style={[
+                styles.textoFiltro,
+                rubroSeleccionado === "rub-ferreteria" &&
+                  styles.textoFiltroActivo,
+              ]}
+            >
+              Ferretería
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.botonFiltro,
+              rubroSeleccionado === "rub-gastronomia" &&
+                styles.botonFiltroActivo,
+            ]}
+            onPress={() => setRubroSeleccionado("rub-gastronomia")}
+          >
+            <Text
+              style={[
+                styles.textoFiltro,
+                rubroSeleccionado === "rub-gastronomia" &&
+                  styles.textoFiltroActivo,
+              ]}
+            >
+              Gastronomía
+            </Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
 
-      
       <View style={styles.contenedorMapa}>
         <WebView
-        originWhitelist={['*']}
-        source={{ html: htmlMapa }}
-        style={styles.mapa} />
+          originWhitelist={["*"]}
+          source={{ html: htmlMapa }}
+          style={styles.mapa}
+        />
       </View>
 
-      
       <View style={styles.contenedorListado}>
-        <Text style={styles.subtituloListado}>Comercios cercanos ordenados por distancia:</Text>
+        <Text style={styles.subtituloListado}>
+          Comercios cercanos ordenados por distancia:
+        </Text>
         <FlatList
           data={comerciosFiltradosOrdenados}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-        <View style={styles.cardComercio}>
-        <View style={styles.infoComercio}>
-        <Text style={styles.nombreComercio}>{item.nombre}</Text>
-        <Text style={styles.direccionComercio}>{item.direccion}</Text>
-        </View>
+            <View style={styles.cardComercio}>
+              <View style={styles.infoComercio}>
+                <Text style={styles.nombreComercio}>{item.nombre}</Text>
+                <Text style={styles.direccionComercio}>{item.direccion}</Text>
+              </View>
 
-    <View style={styles.badgeDistancia}>
-      <Text style={styles.textoDistancia}>
-        {item.distancia < 1
-          ? `${Math.round(item.distancia * 1000)} m`
-          : `${item.distancia.toFixed(1)} km`}
-      </Text>
+              <View style={styles.badgeDistancia}>
+                <Text style={styles.textoDistancia}>
+                  {item.distancia < 1
+                    ? `${Math.round(item.distancia * 1000)} m`
+                    : `${item.distancia.toFixed(1)} km`}
+                </Text>
+              </View>
+
+              <View style={styles.botonesNavegacion}>
+                <TouchableOpacity
+                  style={styles.botonNavegacion}
+                  onPress={() =>
+                    item.coordenadas &&
+                    abrirMapaExterno(
+                      item.coordenadas.latitud,
+                      item.coordenadas.longitud,
+                      "walking",
+                    )
+                  }
+                >
+                  <Text style={styles.textoBotonNavegacion}>Caminar</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.botonNavegacion}
+                  onPress={() =>
+                    item.coordenadas &&
+                    abrirMapaExterno(
+                      item.coordenadas.latitud,
+                      item.coordenadas.longitud,
+                      "driving",
+                    )
+                  }
+                >
+                  <Text style={styles.textoBotonNavegacion}>Auto</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        />
+      </View>
     </View>
-
-    <View style={styles.botonesNavegacion}>
-      <TouchableOpacity
-        style={styles.botonNavegacion}
-        onPress={() =>
-          item.coordenadas &&
-          abrirMapaExterno(
-            item.coordenadas.latitud,
-            item.coordenadas.longitud,
-            'walking'
-          )
-        }
-      >
-        <Text style={styles.textoBotonNavegacion}>Caminar</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.botonNavegacion}
-        onPress={() =>
-          item.coordenadas &&
-          abrirMapaExterno(
-            item.coordenadas.latitud,
-            item.coordenadas.longitud,
-            'driving'
-          )
-        }
-      >
-        <Text style={styles.textoBotonNavegacion}>Auto</Text>
-      </TouchableOpacity>
-    </View>
-  </View>
-)}
-/>
-</View>
-</View>
   );
 }
 
-
-
 const styles = StyleSheet.create({
-  contenedor: { 
-    flex: 1, 
-    backgroundColor: '#f5f5f5' 
+  contenedor: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
   },
-  contenedorCargando: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center' 
+  contenedorCargando: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  titulo: { 
-    fontSize: 18, 
-    fontWeight: 'bold', 
-    marginTop: 10, 
-    color: '#7A5C3E' 
+  titulo: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginTop: 10,
+    color: "#7A5C3E",
   },
   contenedorMapa: {
-    height: '50%',
-    width: '100%',
+    height: "50%",
+    width: "100%",
   },
   mapa: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   contenedorListado: {
-    height: '50%',
-    width: '100%',
+    height: "50%",
+    width: "100%",
     padding: 10,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   subtituloListado: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
     marginBottom: 8,
   },
   cardComercio: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 12,
-    backgroundColor: '#fafafa',
+    backgroundColor: "#fafafa",
     borderRadius: 8,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: "#eee",
     gap: 10,
   },
 
@@ -301,95 +363,95 @@ const styles = StyleSheet.create({
   },
   nombreComercio: {
     fontSize: 15,
-    fontWeight: 'bold',
-    color: '#222',
+    fontWeight: "bold",
+    color: "#222",
   },
   direccionComercio: {
     fontSize: 13,
-    color: '#666',
+    color: "#666",
   },
   badgeDistancia: {
-    backgroundColor: '#7A5C3E',
+    backgroundColor: "#7A5C3E",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
   textoDistancia: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   barraFiltrosContainer: {
-    position: 'absolute',
+    position: "absolute",
     top: 10,
     zIndex: 10,
-    width: '100%',
+    width: "100%",
     paddingHorizontal: 10,
   },
   scrollFiltros: {
     paddingVertical: 5,
   },
   botonFiltro: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 8,
     elevation: 3,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
   },
   botonFiltroActivo: {
-    backgroundColor: '#7A5C3E',
+    backgroundColor: "#7A5C3E",
   },
   textoFiltro: {
-    color: '#333',
-    fontWeight: '600',
+    color: "#333",
+    fontWeight: "600",
     fontSize: 14,
   },
   textoFiltroActivo: {
-    color: '#fff',
+    color: "#fff",
   },
   calloutContainer: {
     padding: 8,
     width: 200,
   },
   calloutTitulo: {
-    fontWeight: 'bold',
+    fontWeight: "bold",
     fontSize: 15,
     marginBottom: 2,
   },
   calloutTexto: {
     fontSize: 13,
-    color: '#666',
+    color: "#666",
     marginBottom: 6,
   },
   calloutBoton: {
-    color: '#0066CC',
-    fontWeight: 'bold',
+    color: "#0066CC",
+    fontWeight: "bold",
     fontSize: 13,
   },
 
   botonesNavegacion: {
-  flexDirection: 'column',
-  gap: 8,
-  alignItems: 'center',
-},
+    flexDirection: "column",
+    gap: 8,
+    alignItems: "center",
+  },
 
-botonNavegacion: {
-  backgroundColor: '#7A5C3E',
-  paddingHorizontal: 12,
-  paddingVertical: 9,
-  borderRadius: 8,
-  minWidth: 75,
-  alignItems: 'center',
-},
+  botonNavegacion: {
+    backgroundColor: "#7A5C3E",
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 8,
+    minWidth: 75,
+    alignItems: "center",
+  },
 
-textoBotonNavegacion: {
-  color: '#fff',
-  fontSize: 13,
-  fontWeight: 'bold',
-},
+  textoBotonNavegacion: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "bold",
+  },
 });

@@ -13,21 +13,20 @@ import { useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useState } from 'react';
 
 const esquemaLogin = z.object({
-  email: z
-    .string({ required_error: 'El email es obligatorio' })
-    .min(1, 'El email es obligatorio')
-    .email('Formato de email inválido'),
-  clave: z
-    .string({ required_error: 'La contraseña es obligatoria' })
-    .min(8, 'Debe tener al menos 8 caracteres'),
+  nombre: z.string().min(1, 'El nombre es obligatorio'),
+  email: z.string().min(1, 'El email es obligatorio').email('Email inválido'),
+  clave: z.string().min(8, 'Debe tener al menos 8 caracteres'),
 });
 
 type FormularioDatos = z.infer<typeof esquemaLogin>;
 
 export default function LoginScreen() {
   const router = useRouter();
+  const [modoRegistro, setModoRegistro] = useState(false);
 
   const {
     control,
@@ -35,21 +34,40 @@ export default function LoginScreen() {
     formState: { errors },
   } = useForm<FormularioDatos>({
     resolver: zodResolver(esquemaLogin),
-    defaultValues: {
-      email: '',
-      clave: '',
-    },
-    mode: 'onBlur',
+    defaultValues: { nombre: '', email: '', clave: '' },
   });
 
-  const onSubmit = (datos: FormularioDatos) => {
-    console.log('Login exitoso:', datos);
-    router.replace('/(tabs)');
+  const onSubmit = async (datos: FormularioDatos) => {
+    try {
+      const respuesta = await fetch(
+        `http://192.168.1.183:3000/auth/${modoRegistro ? 'registro' : 'ingreso'}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...(modoRegistro ? { nombre: datos.nombre } : {}),
+            email: datos.email,
+            contrasena: datos.clave,
+          }),
+        },
+      );
+
+      const resultado = await respuesta.json();
+
+      if (!respuesta.ok) {
+        alert(`Error ${respuesta.status}: ${resultado.mensaje || resultado.message || JSON.stringify(resultado)}`);
+        return;
+      }
+
+      await AsyncStorage.setItem('token', resultado.datos.token);
+      alert(modoRegistro ? '¡Cuenta creada correctamente!' : '¡Bienvenida!');
+      router.replace('/(tabs)');
+    } catch (error) {
+      alert('No se pudo conectar con el servidor.');
+    }
   };
 
-  const entrarInvitado = () => {
-    router.replace('/(tabs)');
-  };
+  const entrarInvitado = () => router.replace('/(tabs)');
 
   return (
     <SafeAreaView style={styles.pantallaSegura}>
@@ -60,6 +78,26 @@ export default function LoginScreen() {
         <View style={styles.tarjeta}>
           <Text style={styles.titulo}>Directorio Comercial</Text>
           <Text style={styles.subtitulo}>Concepción del Uruguay</Text>
+
+          {modoRegistro && (
+            <View style={styles.campo}>
+              <Controller
+                control={control}
+                name="nombre"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    placeholder="Tu nombre"
+                    placeholderTextColor="#94A3B8"
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                    style={styles.input}
+                  />
+                )}
+              />
+              {errors.nombre && <Text style={styles.textoError}>{errors.nombre.message}</Text>}
+            </View>
+          )}
 
           <View style={styles.campo}>
             <Controller
@@ -74,16 +112,11 @@ export default function LoginScreen() {
                   onBlur={onBlur}
                   onChangeText={onChange}
                   value={value}
-                  style={[
-                    styles.input,
-                    errors.email && styles.inputError,
-                  ]}
+                  style={styles.input}
                 />
               )}
             />
-            {errors.email && (
-              <Text style={styles.textoError}>{errors.email.message}</Text>
-            )}
+            {errors.email && <Text style={styles.textoError}>{errors.email.message}</Text>}
           </View>
 
           <View style={styles.campo}>
@@ -92,46 +125,33 @@ export default function LoginScreen() {
               name="clave"
               render={({ field: { onChange, onBlur, value } }) => (
                 <TextInput
-                  placeholder="Contraseña"
+                  placeholder="Contraseña (mínimo 8 caracteres)"
                   placeholderTextColor="#94A3B8"
                   secureTextEntry
                   autoCapitalize="none"
                   onBlur={onBlur}
                   onChangeText={onChange}
                   value={value}
-                  style={[
-                    styles.input,
-                    errors.clave && styles.inputError,
-                  ]}
+                  style={styles.input}
                 />
               )}
             />
-            {errors.clave && (
-              <Text style={styles.textoError}>{errors.clave.message}</Text>
-            )}
+            {errors.clave && <Text style={styles.textoError}>{errors.clave.message}</Text>}
           </View>
 
-          <Pressable
-            role="button"
-            accessibilityLabel="Iniciar sesión"
-            onPress={handleSubmit(onSubmit)}
-            style={({ pressed }) => [
-              styles.botonPrimario,
-              pressed && styles.botonPrimarioPresionado,
-            ]}
-          >
-            <Text style={styles.textoBotonPrimario}>Iniciar Sesión</Text>
+          <Pressable onPress={handleSubmit(onSubmit)} style={styles.botonPrimario}>
+            <Text style={styles.textoBotonPrimario}>
+              {modoRegistro ? 'Crear cuenta' : 'Iniciar sesión'}
+            </Text>
           </Pressable>
 
-          <Pressable
-            role="button"
-            accessibilityLabel="Explorar comercios sin iniciar sesión"
-            onPress={entrarInvitado}
-            style={({ pressed }) => [
-              styles.botonSecundario,
-              pressed && styles.botonSecundarioPresionado,
-            ]}
-          >
+          <Pressable onPress={() => setModoRegistro(!modoRegistro)} style={styles.botonSecundario}>
+            <Text style={styles.textoBotonSecundario}>
+              {modoRegistro ? 'Ya tengo una cuenta' : 'Crear una cuenta nueva'}
+            </Text>
+          </Pressable>
+
+          <Pressable onPress={entrarInvitado} style={styles.botonSecundario}>
             <Text style={styles.textoBotonSecundario}>Explorar sin cuenta</Text>
           </Pressable>
         </View>
@@ -143,33 +163,33 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   pantallaSegura: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFFFFF'
   },
   tecladoContenedor: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 24
   },
   tarjeta: {
     width: '100%',
     maxWidth: 420,
-    alignSelf: 'center',
+    alignSelf: 'center'
   },
   titulo: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#0B3A5D',
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 4
   },
   subtitulo: {
     fontSize: 14,
     color: '#64748B',
     textAlign: 'center',
-    marginBottom: 28,
+    marginBottom: 28
   },
   campo: {
-    marginBottom: 16,
+    marginBottom: 16
   },
   input: {
     backgroundColor: '#FFFFFF',
@@ -179,18 +199,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: '#0F172A',
-  },
-  inputError: {
-    borderColor: '#DC2626',
-    borderWidth: 1.5,
-    backgroundColor: '#FEF2F2',
+    color: '#0F172A'
   },
   textoError: {
     color: '#DC2626',
     fontSize: 12,
     marginTop: 4,
-    marginLeft: 2,
+    marginLeft: 2
   },
   botonPrimario: {
     backgroundColor: '#0B3A5D',
@@ -198,26 +213,20 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 8,
-    marginBottom: 16,
-  },
-  botonPrimarioPresionado: {
-    backgroundColor: '#085394',
+    marginBottom: 12
   },
   textoBotonPrimario: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   botonSecundario: {
     paddingVertical: 10,
-    alignItems: 'center',
-  },
-  botonSecundarioPresionado: {
-    opacity: 0.6,
+    alignItems: 'center'
   },
   textoBotonSecundario: {
     color: '#0B3A5D',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '600'
   },
 });

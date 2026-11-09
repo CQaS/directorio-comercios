@@ -116,13 +116,12 @@ export default function DetalleComercioScreen() {
       setCargando(false);
     };
 
-
     if (id) {
       cargarPromociones();
     }
   }, [id]);
 
-  useEffect(()=> {
+  useEffect(() => {
     let activo = true;
 
     const verificarFavorito = async () => {
@@ -130,12 +129,12 @@ export default function DetalleComercioScreen() {
 
       const guardado = await consultarFavorito(String(id));
 
-      if (activo){
+      if (activo) {
         setFavorito(guardado);
       }
     };
     verificarFavorito();
-    return () =>{
+    return () => {
       activo = false;
     };
   }, [id]);
@@ -241,12 +240,11 @@ export default function DetalleComercioScreen() {
   }
 
   async function cambiarFavorito() {
-    if (!id || actualizandoFavorito)
-      return;
+    if (!id || actualizandoFavorito) return;
 
     setFavorito(true);
 
-    try{
+    try {
       if (favorito) {
         await quitarFavorito(String(id));
         setFavorito(false);
@@ -277,20 +275,18 @@ export default function DetalleComercioScreen() {
           </Text>
 
           <Pressable
-          style={styles.botonEscanear}
-          onPress={() => void
-            cambiarFavorito()}
+            style={styles.botonEscanear}
+            onPress={() => void cambiarFavorito()}
             disabled={actualizandoFavorito}
-            >
-              <Text style={styles.textoBoton}>
-                {actualizandoFavorito
+          >
+            <Text style={styles.textoBoton}>
+              {actualizandoFavorito
                 ? "Actualizando..."
                 : favorito
-                ? "Quitar de favoritos"
-                : "Agregar a favoritos"}
-              </Text>
-            </Pressable>
-    
+                  ? "Quitar de favoritos"
+                  : "Agregar a favoritos"}
+            </Text>
+          </Pressable>
         </View>
 
         <View style={styles.tarjetaFicha}>
@@ -352,9 +348,6 @@ export default function DetalleComercioScreen() {
             ))}
           </View>
         )}
-      
-
-  
 
         <View style={styles.resena}>
           <Text style={styles.subtitulo}>Reseñas del comercio</Text>
