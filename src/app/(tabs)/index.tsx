@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,37 +7,86 @@ import {
   Pressable,
   StyleSheet,
   useWindowDimensions,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import { fa } from "zod/v4/locales";
 
-
-const COMERCIOS_PRUEBA = [
-  { id: '1', nombre: 'Panadería La Espiga', direccion: 'San Martín 450', rubroId: 'Gastronomía', abierto: true },
-  { id: '2', nombre: 'Ferretería Central', direccion: '9 de Julio 120', rubroId: 'Ferretería', abierto: false },
-  { id: '3', nombre: 'Boutique Urbana', direccion: 'Galarza 830', rubroId: 'Indumentaria', abierto: true },
-  { id: '4', nombre: 'Taller Mecánico Suárez', direccion: 'Bv. Los Constituyentes 210', rubroId: 'Servicios', abierto: true },
+const RUBROS = [
+  { id: "Todos", nombre: "Todos" },
+  { id: "rub-gastronomia", nombre: "Gastronomía" },
+  { id: "rub-indumentaria", nombre: "Indumentaria" },
+  { id: "rub-hogar", nombre: "Hogar" },
+  { id: "rub-ferreteria", nombre: "Ferretería y construcción" },
+  { id: "rub-salud", nombre: "Salud y farmacia" },
+  { id: "rub-servicios", nombre: "Servicios" },
+  { id: "rub-tecnologia", nombre: "Tecnología" },
+  { id: "rub-libreria", nombre: "Librería" },
+  { id: "rub-otros", nombre: "Otros" },
 ];
 
-const RUBROS = ['Todos', 'Gastronomía', 'Indumentaria', 'Ferretería', 'Servicios'];
+function estaAbierto(horarios: any[]) {
+  if (!horarios || horarios.length === 0) {
+    return false;
+  }
 
+  const ahora = new Date();
+  const diaActual = ahora.getDay();
+  const horaActual = ahora.getHours() * 60 + ahora.getMinutes();
+
+  return horarios.some((horario) => {
+    if (horario.dia !== diaActual) {
+      return false;
+    }
+
+    const [horaAbre, minutoAbre] = horario.abre.split(":").map(Number);
+    const [horaCierra, minutoCierra] = horario.cierra.split(":").map(Number);
+
+    const apertura = horaAbre * 60 + minutoAbre;
+    const cierre = horaCierra * 60 + minutoCierra;
+
+    return horaActual >= apertura && horaActual < cierre;
+  });
+}
 export default function DirectorioScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
 
-  const [busqueda, setBusqueda] = useState('');
-  const [rubroSeleccionado, setRubroSeleccionado] = useState('Todos');
+  const [busqueda, setBusqueda] = useState("");
+  const [rubroSeleccionado, setRubroSeleccionado] = useState("Todos");
+
+  const [comercios, setComercios] = useState<any[]>([]);
+  useEffect(() => {
+    async function cargarComercios() {
+      try {
+        const respuesta = await fetch("http://192.168.1.42:3000/comercios");
+
+        if (!respuesta.ok) {
+          const errorTexto = await respuesta.text();
+          console.log("ERROR AOI:", respuesta.status, errorTexto);
+          throw new Error("No se pudieron cargar los comercios");
+        }
+
+        const datos = await respuesta.json();
+        setComercios(datos.datos);
+      } catch (error) {
+        console.error("Error al cargar comercios:", error);
+      }
+    }
+
+    cargarComercios();
+  }, []);
 
   const esPantallaAncha = width >= 768;
   const columnas = esPantallaAncha ? 2 : 1;
 
   const comerciosFiltrados = useMemo(() => {
-    return COMERCIOS_PRUEBA.filter((comercio) => {
+    return comercios.filter((comercio) => {
       const coincideTexto = comercio.nombre
         .toLowerCase()
         .includes(busqueda.toLowerCase());
       const coincideRubro =
-        rubroSeleccionado === 'Todos' || comercio.rubroId === rubroSeleccionado;
+        rubroSeleccionado === "Todos" || comercio.rubroId === rubroSeleccionado;
       return coincideTexto && coincideRubro;
     });
   }, [busqueda, rubroSeleccionado]);
@@ -63,18 +112,20 @@ export default function DirectorioScreen() {
           horizontal
           showsHorizontalScrollIndicator={false}
           data={RUBROS}
-          keyExtractor={(item) => item}
+          keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listaChips}
           renderItem={({ item }) => {
-            const activo = rubroSeleccionado === item;
+            const activo = rubroSeleccionado === item.id;
             return (
               <Pressable
                 role="button"
-                onPress={() => setRubroSeleccionado(item)}
+                onPress={() => setRubroSeleccionado(item.id)}
                 style={[styles.chip, activo && styles.chipActivo]}
               >
-                <Text style={[styles.textoChip, activo && styles.textoChipActivo]}>
-                  {item}
+                <Text
+                  style={[styles.textoChip, activo && styles.textoChipActivo]}
+                >
+                  {item.nombre}
                 </Text>
               </Pressable>
             );
@@ -104,16 +155,20 @@ export default function DirectorioScreen() {
               <View
                 style={[
                   styles.badgeEstado,
-                  item.abierto ? styles.badgeAbierto : styles.badgeCerrado,
+                  estaAbierto(item.horarios)
+                    ? styles.badgeAbierto
+                    : styles.badgeCerrado,
                 ]}
               >
                 <Text
                   style={[
                     styles.textoBadge,
-                    item.abierto ? styles.textoAbierto : styles.textoCerrado,
+                    estaAbierto(item.horarios)
+                      ? styles.textoAbierto
+                      : styles.textoCerrado,
                   ]}
                 >
-                  {item.abierto ? 'Abierto' : 'Cerrado'}
+                  {estaAbierto(item.horarios) ? "Abierto" : "Cerrado"}
                 </Text>
               </View>
             </View>
@@ -130,7 +185,7 @@ export default function DirectorioScreen() {
 const styles = StyleSheet.create({
   contenedorPrincipal: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: "#F8FAFC",
   },
   encabezado: {
     paddingHorizontal: 16,
@@ -139,23 +194,23 @@ const styles = StyleSheet.create({
   },
   titulo: {
     fontSize: 22,
-    fontWeight: 'bold',
-    color: '#0B3A5D',
+    fontWeight: "bold",
+    color: "#0B3A5D",
   },
   subtitulo: {
     fontSize: 14,
-    color: '#64748B',
+    color: "#64748B",
     marginBottom: 10,
   },
   inputBuscador: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: "#E2E8F0",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 15,
-    color: '#0F172A',
+    color: "#0F172A",
   },
   contenedorChips: {
     marginVertical: 6,
@@ -169,21 +224,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 999,
     borderWidth: 1.5,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
+    borderColor: "#CBD5E1",
+    backgroundColor: "#FFFFFF",
   },
   chipActivo: {
-    backgroundColor: '#0B3A5D',
-    borderColor: '#0B3A5D',
+    backgroundColor: "#0B3A5D",
+    borderColor: "#0B3A5D",
   },
   textoChip: {
     fontSize: 13,
-    color: '#475569',
-    fontWeight: '500',
+    color: "#475569",
+    fontWeight: "500",
   },
   textoChipActivo: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
+    color: "#FFFFFF",
+    fontWeight: "bold",
   },
   listaComercios: {
     padding: 16,
@@ -191,11 +246,11 @@ const styles = StyleSheet.create({
   },
   tarjeta: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 10,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: "#E2E8F0",
     marginBottom: 8,
   },
   tarjetaAncha: {
@@ -205,25 +260,25 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   tarjetaCabecera: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 6,
   },
   nombreComercio: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#0F172A',
+    fontWeight: "bold",
+    color: "#0F172A",
     flex: 1,
   },
   direccion: {
     fontSize: 13,
-    color: '#64748B',
+    color: "#64748B",
   },
   rubro: {
     fontSize: 12,
-    color: '#0B3A5D',
-    fontWeight: '600',
+    color: "#0B3A5D",
+    fontWeight: "600",
     marginTop: 6,
   },
   badgeEstado: {
@@ -232,19 +287,19 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   badgeAbierto: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: "#DCFCE7",
   },
   badgeCerrado: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: "#FEE2E2",
   },
   textoBadge: {
     fontSize: 11,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   textoAbierto: {
-    color: '#166534',
+    color: "#166534",
   },
   textoCerrado: {
-    color: '#991B1B',
+    color: "#991B1B",
   },
 });

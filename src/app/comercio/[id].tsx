@@ -25,6 +25,11 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { registrarCanje } from "../../service/canjes";
 import { guardarResena, eliminarResenaGuardada } from "../../service/resenas";
 import { obtenerMisResenas } from "../../service/resenas";
+import {
+  agregarFavorito,
+  quitarFavorito,
+  esFavorito as consultarFavorito,
+} from "../../service/favoritos";
 
 export default function DetalleComercioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -96,6 +101,10 @@ export default function DetalleComercioScreen() {
   };
 
   const [comercio, setComercio] = useState<any>({ imagenes: [] });
+
+  const [favorito, setFavorito] = useState(false);
+  const [actualizandoFavorito, setActualizandoFavorito] = useState(false);
+
   const [listaPromociones, setListaPromociones] = useState<Promocion[]>([]);
   const [cargando, setCargando] = useState<boolean>(true);
 
@@ -110,6 +119,24 @@ export default function DetalleComercioScreen() {
     if (id) {
       cargarPromociones();
     }
+  }, [id]);
+
+  useEffect(() => {
+    let activo = true;
+
+    const verificarFavorito = async () => {
+      if (!id) return;
+
+      const guardado = await consultarFavorito(String(id));
+
+      if (activo) {
+        setFavorito(guardado);
+      }
+    };
+    verificarFavorito();
+    return () => {
+      activo = false;
+    };
   }, [id]);
 
   if (cargando) {
@@ -212,6 +239,26 @@ export default function DetalleComercioScreen() {
     setRespuestaNueva("");
   }
 
+  async function cambiarFavorito() {
+    if (!id || actualizandoFavorito) return;
+
+    setFavorito(true);
+
+    try {
+      if (favorito) {
+        await quitarFavorito(String(id));
+        setFavorito(false);
+      } else {
+        await agregarFavorito(String(id));
+        setFavorito(true);
+      }
+    } catch (error) {
+      console.error("Error al actualizar favorito:", error);
+    } finally {
+      setActualizandoFavorito(false);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.contenedor}>
       <ScrollView>
@@ -226,6 +273,20 @@ export default function DetalleComercioScreen() {
             Acá se visualizan los horarios detallados, promociones vigentes y
             ubicación del comercio en Concepción del Uruguay.
           </Text>
+
+          <Pressable
+            style={styles.botonEscanear}
+            onPress={() => void cambiarFavorito()}
+            disabled={actualizandoFavorito}
+          >
+            <Text style={styles.textoBoton}>
+              {actualizandoFavorito
+                ? "Actualizando..."
+                : favorito
+                  ? "Quitar de favoritos"
+                  : "Agregar a favoritos"}
+            </Text>
+          </Pressable>
         </View>
 
         <View style={styles.tarjetaFicha}>
@@ -379,7 +440,7 @@ export default function DetalleComercioScreen() {
   );
 }
 
-function filaFavorito({
+function FilaFavorito({
   comercio,
   onEliminar,
 }: {

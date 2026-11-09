@@ -1,8 +1,13 @@
 import { Promocion } from "../tipos";
+const urlBase = process.env.EXPO_PUBLIC_API_URL;
 
 export async function buscarPromocionesPorComercio(
   comercioId: string,
 ): Promise<Promocion[]> {
+  const promociones = await buscarPromociones();
+
+  return promociones.filter((promocion) => promocion.comercioId === comercioId);
+
   // Implementación de la función asíncrona cuando tengamos la api real. Por ahora, devolvemos datos simulados.
 
   /* const respuesta = await fetch(
@@ -17,7 +22,7 @@ export async function buscarPromocionesPorComercio(
   return [
     {
       id: "promo-123",
-      comercioId,
+      comercioId: "1",
       rubro: "Gastronomía",
       titulo: "Promo 1",
       detalle: "Detalle de la promo 1",
@@ -32,7 +37,7 @@ export async function buscarPromocionesPorComercio(
     },
     {
       id: "promo-456",
-      comercioId,
+      comercioId: "2",
       rubro: "Indumentaria",
       titulo: "Promo 2",
       detalle: "Detalle de la promo 2",
@@ -47,7 +52,7 @@ export async function buscarPromocionesPorComercio(
     },
     {
       id: "promo-789",
-      comercioId,
+      comercioId: "3",
       rubro: "Ferretería",
       titulo: "Promo 3",
       detalle: "Detalle de la promo 3",
@@ -62,7 +67,7 @@ export async function buscarPromocionesPorComercio(
     },
     {
       id: "promo-869",
-      comercioId,
+      comercioId: "4",
       rubro: "Servicios",
       titulo: "Promo 4",
       detalle: "Detalle de la promo 4",
@@ -77,7 +82,7 @@ export async function buscarPromocionesPorComercio(
     },
     {
       id: "promo-576",
-      comercioId,
+      comercioId: "5",
       rubro: "Servicios",
       titulo: "Promo 4",
       detalle: "Detalle de la promo 4",
@@ -93,28 +98,37 @@ export async function buscarPromocionesPorComercio(
   ];
 }
 
-
 export async function buscarPromociones(): Promise<Promocion[]> {
+  try {
+    const respuesta = await fetch(`${urlBase}/promociones`);
 
-  return await
-  buscarPromocionesPorComercio("");
+    if (!respuesta.ok) {
+      throw new Error("No se pudieron obtener las promociones");
+    }
+
+    const resultado = await respuesta.json();
+
+    return resultado.datos;
+  } catch (error) {
+    console.error("Error al buscar promociones:", error);
+    return [];
+  }
 }
 
-export async function obtenerPromocionesPorId(id:string): Promise<Promocion | null> {
-  const promociones = await
-  buscarPromociones();
+export async function obtenerPromocionesPorId(
+  id: string,
+): Promise<Promocion | null> {
+  const promociones = await buscarPromociones();
   const promocion = promociones.find((promocion) => promocion.id === id);
 
   if (promocion === undefined) {
     return null;
   }
 
-  return promocion
-  
+  return promocion;
 }
 
-export function
-clasificarPromociones(promociones: Promocion[]) {
+export function clasificarPromociones(promociones: Promocion[]) {
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
 
@@ -123,48 +137,65 @@ clasificarPromociones(promociones: Promocion[]) {
 
   return {
     vigentes: promociones.filter((promo) => {
-    const desde = new Date(promo.desde);
-    const hasta = new Date(promo.hasta);
+      const desde = new Date(promo.desde);
+      const hasta = new Date(promo.hasta);
 
-    return (
-      promo.activa &&
-      desde <= hoy &&
-      hasta >= hoy
-    );
-  }),
+      return promo.activa && desde <= hoy && hasta >= hoy;
+    }),
 
-  porVencer: promociones.filter((promo) => {
-    const hasta = new Date(promo.hasta);
+    porVencer: promociones.filter((promo) => {
+      const hasta = new Date(promo.hasta);
 
-    return (
-      promo.activa &&
-      new Date(promo.desde) <= hoy &&
-      hasta >= hoy &&
-      hasta <= enSieteDias
-    );
-  }),
+      return (
+        promo.activa &&
+        new Date(promo.desde) <= hoy &&
+        hasta >= hoy &&
+        hasta <= enSieteDias
+      );
+    }),
 
-  proximas: promociones.filter((promo) => {
-    const desde = new Date(promo.desde);
+    proximas: promociones.filter((promo) => {
+      const desde = new Date(promo.desde);
 
-    return (
-      promo.activa &&
-      desde > hoy &&
-      desde <= enSieteDias
-    );
-  }),
-
-}
+      return promo.activa && desde > hoy && desde <= enSieteDias;
+    }),
+  };
 }
 
-export async function buscarPromocionesPorRubro(rubro: string): Promise<Promocion[]> {
-  const promociones = await
-  buscarPromociones();
+export async function buscarPromocionesPorRubro(
+  rubro: string,
+): Promise<Promocion[]> {
+  try {
+    const promociones = await buscarPromociones();
 
-  return promociones.filter((promocion) => promocion.rubro.toLowerCase() === rubro.toLowerCase(),
-  );
-  
+    const respuesta = await fetch(`${urlBase}/comercios`);
+
+    if (!respuesta.ok) {
+      throw new Error("No se pudieron cargar los comercios");
+    }
+
+    const resultado = await respuesta.json();
+
+    const nombresRubros: Record<string, string> = {
+      "rub-gastronomia": "Gastronomía",
+      "rub-ferreteria": "Ferretería",
+      "rub-indumentaria": "Indumentaria",
+      "rub-servicios": "Servicios",
+    };
+
+    return promociones.filter((promo) => {
+      const comercio = resultado.datos.find(
+        (item: any) => item.id === promo.comercioId,
+      );
+
+      const nombreRubro = nombresRubros[comercio?.rubroId];
+
+      return nombreRubro?.toLowerCase() === rubro.toLowerCase();
+    });
+  } catch (error) {
+    console.error("Error al buscar promociones por rubro:", error);
+    return [];
+  }
 }
 
-buscarPromocionesPorRubro
-
+buscarPromocionesPorRubro;
