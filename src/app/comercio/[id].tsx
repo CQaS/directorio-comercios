@@ -1,47 +1,50 @@
-import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, } from "react-native";
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  Pressable,
+  TextInput,
+} from "react-native";
+import {
+  Gesture,
+  GestureDetector,
+  ScrollView,
+} from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams } from "expo-router";
 import Button from "../../shared/ui/button";
 import { Promocion } from "../../tipos";
 import { buscarPromocionesPorComercio } from "../../service/promociones";
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle } from 'react-native-reanimated';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+} from "react-native-reanimated";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { validarCanjeEnLaApi } from "../../service/canjes";
-import { eliminarResenaEnLaApi, buscarResenasPorComercio, publicarResenaEnLaApi, editarResenaEnLaApi, reportarResenaEnLaApi, responderResenaEnLaApi } from "../../service/resenas";
-
-function filaFavorito ({comercio, onEliminar}: {comercio:any;onEliminar:(id:any)=>void}) {
-  const translateX = useSharedValue(0);
-  const swipe = Gesture.Pan()
-  .onUpdate((e) => {
-    translateX.value = Math.min (0, e.translationX);
-  })
-  .onEnd ((e) => {
-    if (e.translationX < -100) {
-      onEliminar(comercio.id);
-    }
-    translateX.value = 0;
-  });
-  const style = useAnimatedStyle(() => ({
-    transform: [{translateX: translateX.value}],
-  }));
-  return (
-    <GestureDetector gesture={swipe}>
-      <Animated.View style = {[styles.fila, style]}>
-        <Text>{comercio.nombre}</Text>
-      </Animated.View>
-    </GestureDetector>
-  );
-} 
+import { registrarCanje } from "../../service/canjes";
+import { guardarResena, eliminarResenaGuardada } from "../../service/resenas";
+import { obtenerMisResenas } from "../../service/resenas";
+import {
+  agregarFavorito,
+  quitarFavorito,
+  esFavorito as consultarFavorito,
+} from "../../service/favoritos";
 
 export default function DetalleComercioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [permisoCamara, solicitarPermisoCamara] = useCameraPermissions();
   const [escanearQR, setEscanearQR] = useState(false);
-  const [resultadoQR, setResultadoQR] = useState('');
-  const [resenas, setResenas] = useState<Resena[]>([]);
-  const [estrellasSeleccionadas, setEstrellasSeleccionadas] = useState<  1 | 2 | 3 | 4 | 5 >(5);
+  const [resultadoQR, setResultadoQR] = useState("");
+  const [resenas, setResenas] = useState<Resena[]>([
+    resena,
+    ...obtenerMisResenas("usuario-actual").filter(
+      (item) => item.comercioId === String(id),
+    ),
+  ]);
+  const [estrellasSeleccionadas, setEstrellasSeleccionadas] = useState<
+    1 | 2 | 3 | 4 | 5
+  >(5);
   const resenasOrdenadas = ordenarResenas(resenas);
   const promedioResenas = calcularPromedio(resenas);
   const [comentarioNuevo, setComentarioNuevo] = useState("");
@@ -49,21 +52,58 @@ export default function DetalleComercioScreen() {
   const [resenaEditando, setResenaEditando] = useState<string | null>(null);
 
   const procesarQR = async (data: string) => {
-  try {
-    const codigo = data;
+    try {
+      const datos = JSON.parse(data);
 
-    await validarCanjeEnLaApi(codigo);
+      if (!datos.promocionId || !datos.comercioId || !datos.codigo) {
+        setResultadoQR("QR inválido");
+        return;
+      }
 
-    setResultadoQR('¡Canje validado correctamente!');
-  } catch (error) {
-    setResultadoQR(
-      error instanceof Error
-        ? error.message
-        : 'No se pudo validar el canje.',
-    );
-  }
-};
-  
+      if (datos.comercioId !== id) {
+        setResultadoQR("Esta promoción no corresponde a este comercio");
+        return;
+      }
+
+      const promociones = await buscarPromocionesPorComercio(datos.comercioId);
+      const promocion = promociones.find(
+        (promo) => promo.id === datos.promocionId,
+      );
+
+      if (!promocion) {
+        setResultadoQR("La promoción no pertenece a este comercio");
+        return;
+      }
+
+      const hoy = new Date();
+      const desde = new Date(promocion.desde);
+      const hasta = new Date(promocion.hasta);
+
+      if (!promocion.activa || hoy < desde || hoy > hasta) {
+        setResultadoQR("La promoción no está vigente");
+        return;
+      }
+
+      const registrado = await registrarCanje(
+        datos.promocionId,
+        datos.comercioId,
+        datos.codigo,
+      );
+
+      setResultadoQR(
+        registrado
+          ? "Canje registrado correctamente!"
+          : "Este código ya fue utilizado",
+      );
+    } catch {
+      setResultadoQR("El QR no tiene un formato válido");
+    }
+  };
+
+  const [comercio, setComercio] = useState<any>({ imagenes: [] });
+
+  const [favorito, setFavorito] = useState(false);
+  const [actualizandoFavorito, setActualizandoFavorito] = useState(false);
 
   const [listaPromociones, setListaPromociones] = useState<Promocion[]>([]);
   const [cargando, setCargando] = useState<boolean>(true);
@@ -81,284 +121,354 @@ export default function DetalleComercioScreen() {
     }
   }, [id]);
 
-    useEffect(() => {
-      async function cargarResenas() {
-    try {
-      const resultado = await buscarResenasPorComercio(String(id));
-      setResenas(resultado);
-    } catch (error) {
-      console.log("Error al cargar reseñas:", error);
-    }
-  }
+  useEffect(() => {
+    let activo = true;
 
-  if (id) {
-    cargarResenas();
-  }
-}, [id]);
+    const verificarFavorito = async () => {
+      if (!id) return;
+
+      const guardado = await consultarFavorito(String(id));
+
+      if (activo) {
+        setFavorito(guardado);
+      }
+    };
+    verificarFavorito();
+    return () => {
+      activo = false;
+    };
+  }, [id]);
 
   if (cargando) {
     return <Text>Cargando...</Text>;
   }
 
-  
-async function publicarResena() {
-  if (comentarioNuevo.trim() === "") {
-    return;
-  }
+  function publicarResena() {
+    if (comentarioNuevo.trim() === "") {
+      return;
+    }
 
-  try {
     if (resenaEditando !== null) {
-      const resenaModificada = await editarResenaEnLaApi(
-        resenaEditando,
-        estrellasSeleccionadas,
-        comentarioNuevo.trim()
-      );
+      const actualizada = resenas.find((item) => item.id === resenaEditando);
 
-      setResenas((anteriores) =>
-        anteriores.map((item) =>
-          item.id === resenaEditando ? resenaModificada : item
-        )
-      );
+      if (actualizada) {
+        const resenaModificada = {
+          ...actualizada,
+          estrellas: estrellasSeleccionadas,
+          comentario: comentarioNuevo.trim(),
+        };
+
+        guardarResena(resenaModificada);
+
+        setResenas((anteriores) =>
+          anteriores.map((item) =>
+            item.id === resenaEditando ? resenaModificada : item,
+          ),
+        );
+      }
 
       setResenaEditando(null);
     } else {
-      const nuevaResena = await publicarResenaEnLaApi(
-        String(id),
-        estrellasSeleccionadas,
-        comentarioNuevo.trim()
-      );
-
+      const nuevaResena: Resena = {
+        id: Date.now().toString(),
+        comercioId: String(id),
+        usuarioId: "usuario-actual",
+        estrellas: estrellasSeleccionadas,
+        comentario: comentarioNuevo.trim(),
+        respuesta: null,
+        reportada: false,
+        creadaEn: new Date().toISOString(),
+        sincronizada: false,
+      };
+      guardarResena(nuevaResena);
+      console.log("Reseña publicada:", nuevaResena);
       setResenas((anteriores) => [nuevaResena, ...anteriores]);
     }
-
     setComentarioNuevo("");
     setEstrellasSeleccionadas(5);
-  } catch (error) {
-    console.log("Error al guardar reseña:", error);
   }
-}
 
+  function eliminarResena(resenaId: string) {
+    setResenas((anteriores) =>
+      anteriores.filter((item) => item.id !== resenaId),
+    );
 
-async function eliminarResena(resenaId: string) {
-  try {
-    await eliminarResenaEnLaApi(resenaId);
+    eliminarResenaGuardada(resenaId);
+    console.log("Reseña eliminada:", resenaId);
+  }
+
+  function editarResena(resenaId: string) {
+    const resenaElegida = resenas.find((item) => item.id === resenaId);
+
+    if (!resenaElegida) return;
+
+    setResenaEditando(resenaId);
+    setComentarioNuevo(resenaElegida.comentario);
+    setEstrellasSeleccionadas(resenaElegida.estrellas);
+  }
+
+  function reportarResena(resenaId: string) {
+    const resenaReportada = resenas.find((item) => item.id === resenaId);
+
+    if (!resenaReportada) return;
+
+    const actualizada = {
+      ...resenaReportada,
+      reportada: true,
+    };
 
     setResenas((anteriores) =>
-      anteriores.filter((item) => item.id !== resenaId)
+      anteriores.map((item) => (item.id === resenaId ? actualizada : item)),
     );
-  } catch (error) {
-    console.log("Error al eliminar reseña:", error);
-  }
-}
 
-function editarResena(resenaId: string) {
-  const resenaElegida = resenas.find(
-    (item) => item.id === resenaId
-  );
-
-  if (!resenaElegida) return;
-
-  setResenaEditando(resenaId);
-  setComentarioNuevo(resenaElegida.comentario);
-  setEstrellasSeleccionadas(resenaElegida.estrellas);
-}
-
-async function reportarResena(resenaId: string) {
-  try {
-    const resenaActualizada = await reportarResenaEnLaApi(resenaId);
-
-    setResenas((anteriores) =>
-      anteriores.map((item) =>
-        item.id === resenaId ? resenaActualizada : item
-      )
-    );
-  } catch (error) {
-    console.log("Error al reportar reseña:", error);
-  }
-}
-
-async function responderResena(resenaId: string) {
-  if (respuestaNueva.trim() === "") {
-    return;
+    guardarResena(actualizada);
   }
 
-  try {
-    const resenaActualizada = await responderResenaEnLaApi(
-      resenaId,
-      respuestaNueva.trim()
-    );
+  function responderResena(resenaId: string) {
+    if (respuestaNueva.trim() === "") {
+      return;
+    }
 
     setResenas((anteriores) =>
       anteriores.map((item) =>
-        item.id === resenaId ? resenaActualizada : item
-      )
+        item.id === resenaId && item.respuesta === null
+          ? { ...item, respuesta: respuestaNueva.trim() }
+          : item,
+      ),
     );
-
     setRespuestaNueva("");
-  } catch (error) {
-    console.log("Error al responder reseña:", error);
   }
-}
 
+  async function cambiarFavorito() {
+    if (!id || actualizandoFavorito) return;
+
+    setFavorito(true);
+
+    try {
+      if (favorito) {
+        await quitarFavorito(String(id));
+        setFavorito(false);
+      } else {
+        await agregarFavorito(String(id));
+        setFavorito(true);
+      }
+    } catch (error) {
+      console.error("Error al actualizar favorito:", error);
+    } finally {
+      setActualizandoFavorito(false);
+    }
+  }
 
   return (
-  <SafeAreaView style={styles.contenedor}>
-    <ScrollView>
-      {/* Botón Volver reutilizable */}
-      <Button title="Volver" />
-      <View style={styles.tarjetaFicha}>
-        <Text style={styles.titulo}>Ficha del Comercio</Text>
-        <Text style={styles.subtitulo}>Identificador del comercio: #{id}</Text>
-        <Text style={styles.descripcion}>
-          Acá se visualizan los horarios detallados, promociones vigentes y
-          ubicación del comercio en Concepción del Uruguay.
-        </Text>
-      </View>
-
-<View style={styles.tarjetaFicha}>
-  <Text style={styles.titulo}>Registrar canje</Text>
-
-  <Pressable
-    onPress={async () => {
-      if (!permisoCamara?.granted) {
-        const permiso = await solicitarPermisoCamara();
-        if (!permiso.granted) return;
-      }
-
-      setResultadoQR('');
-      setEscanearQR(true);
-    }}
-    style={styles.botonEscanear}
-  >
-    <Text style={styles.textoBoton}>
-      Escanear QR del cliente
-    </Text>
-  </Pressable>
-
-  {resultadoQR !== '' && (
-    <Text style={styles.descripcion}>
-      Código leído: {resultadoQR}
-    </Text>
-  )}
-
-  {escanearQR && (
-    <View style={styles.contenedorCamara}>
-      <CameraView
-        style={styles.camara}
-        facing="back"
-        barcodeScannerSettings={{
-          barcodeTypes: ['qr'],
-        }}
-        onBarcodeScanned={({ data }) => {
-          setEscanearQR(false);
-          void procesarQR(data);
-        }}
-      />
-
-      <Pressable
-        onPress={() => setEscanearQR(false)}
-        style={styles.botonEscanear}
-      >
-        <Text style={styles.textoBoton}>Cancelar</Text>
-      </Pressable>
-    </View>
-  )}
-</View>
-
-
-      {/* Promociones */}
-      {listaPromociones.length > 0 && (
+    <SafeAreaView style={styles.contenedor}>
+      <ScrollView>
+        {/* Botón Volver reutilizable */}
+        <Button title="Volver" />
         <View style={styles.tarjetaFicha}>
-          <Text style={styles.titulo}>Promociones</Text>
+          <Text style={styles.titulo}>Ficha del Comercio</Text>
+          <Text style={styles.subtitulo}>
+            Identificador del comercio: #{id}
+          </Text>
+          <Text style={styles.descripcion}>
+            Acá se visualizan los horarios detallados, promociones vigentes y
+            ubicación del comercio en Concepción del Uruguay.
+          </Text>
 
-          {listaPromociones.map((promocion) => (
-            <Text key={promocion.id} style={styles.descripcion}>
-              {promocion.titulo}: {promocion.detalle} - Descuento:{" "}
-              {promocion.descuento}%
+          <Pressable
+            style={styles.botonEscanear}
+            onPress={() => void cambiarFavorito()}
+            disabled={actualizandoFavorito}
+          >
+            <Text style={styles.textoBoton}>
+              {actualizandoFavorito
+                ? "Actualizando..."
+                : favorito
+                  ? "Quitar de favoritos"
+                  : "Agregar a favoritos"}
             </Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.tarjetaFicha}>
+          <Text style={styles.titulo}>Registrar canje</Text>
+
+          <Pressable
+            onPress={async () => {
+              if (!permisoCamara?.granted) {
+                const permiso = await solicitarPermisoCamara();
+                if (!permiso.granted) return;
+              }
+
+              setResultadoQR("");
+              setEscanearQR(true);
+            }}
+            style={styles.botonEscanear}
+          >
+            <Text style={styles.textoBoton}>Escanear QR del cliente</Text>
+          </Pressable>
+
+          {resultadoQR !== "" && (
+            <Text style={styles.descripcion}>Código leído: {resultadoQR}</Text>
+          )}
+
+          {escanearQR && (
+            <View style={styles.contenedorCamara}>
+              <CameraView
+                style={styles.camara}
+                facing="back"
+                barcodeScannerSettings={{
+                  barcodeTypes: ["qr"],
+                }}
+                onBarcodeScanned={({ data }) => {
+                  setEscanearQR(false);
+                  void procesarQR(data);
+                }}
+              />
+
+              <Pressable
+                onPress={() => setEscanearQR(false)}
+                style={styles.botonEscanear}
+              >
+                <Text style={styles.textoBoton}>Cancelar</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+
+        {/* Promociones */}
+        {listaPromociones.length > 0 && (
+          <View style={styles.tarjetaFicha}>
+            <Text style={styles.titulo}>Promociones</Text>
+
+            {listaPromociones.map((promocion) => (
+              <Text key={promocion.id} style={styles.descripcion}>
+                {promocion.titulo}: {promocion.detalle} - Descuento:{" "}
+                {promocion.descuento}%
+              </Text>
+            ))}
+          </View>
+        )}
+
+        <View style={styles.resena}>
+          <Text style={styles.subtitulo}>Reseñas del comercio</Text>
+          <Text style={styles.descripcion}>Tu calificación</Text>
+          <View style={styles.filaEstrellas}>
+            {[1, 2, 3, 4, 5].map((numero) => (
+              <Pressable
+                key={numero}
+                onPress={() =>
+                  setEstrellasSeleccionadas(numero as 1 | 2 | 3 | 4 | 5)
+                }
+              >
+                <Text style={styles.estrella}>
+                  {numero <= estrellasSeleccionadas ? "★" : "☆"}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={styles.descripcion}>Tu comentario</Text>
+          <TextInput
+            style={styles.campoComentario}
+            placeholder="Escribí tu reseña..."
+            value={comentarioNuevo}
+            onChangeText={setComentarioNuevo}
+            multiline
+          />
+          <Pressable style={styles.botonResena} onPress={publicarResena}>
+            <Text style={styles.textoBotonResena}>
+              {resenaEditando !== null ? "Guardar cambios" : "Publicar reseña"}
+            </Text>
+          </Pressable>
+
+          <Text style={styles.descripcion}>
+            Promedio: {promedioResenas.toFixed(1)} / 5 ⭐
+          </Text>
+          {resenasOrdenadas.map((item) => (
+            <View key={item.id} style={styles.tarjetaFicha}>
+              <Text style={styles.descripcion}>
+                {"⭐".repeat(item.estrellas)}
+              </Text>
+              <Text style={styles.descripcion}>{item.comentario}</Text>
+              <Pressable
+                onPress={() => eliminarResena(item.id)}
+                style={styles.botonEliminar}
+              >
+                <Text style={styles.textoEliminar}>Eliminar reseña</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => editarResena(item.id)}
+                style={styles.botonEditar}
+              >
+                <Text style={styles.textoEditar}>Editar reseña</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => reportarResena(item.id)}
+                style={styles.botonReportar}
+              >
+                <Text style={styles.textoReportar}>
+                  {item.reportada ? "Reseña reportada" : "Reportar reseña"}
+                </Text>
+              </Pressable>
+
+              {item.respuesta ? (
+                <Text style={styles.descripcion}>
+                  Respuesta del comercio: {item.respuesta}
+                </Text>
+              ) : (
+                <>
+                  <TextInput
+                    style={styles.campoComentario}
+                    placeholder="Respuesta del comercio..."
+                    value={respuestaNueva}
+                    onChangeText={setRespuestaNueva}
+                    multiline
+                  />
+                  <Pressable
+                    style={styles.botonRespuesta}
+                    onPress={() => responderResena(item.id)}
+                  >
+                    <Text style={styles.textoBotonRespuesta}>Responder</Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
           ))}
         </View>
-      )}
-      
-      <View style={styles.resena}>
-        <Text style={styles.subtitulo}>Reseñas del comercio</Text>
-        <Text style={styles.descripcion}>Tu calificación</Text>
-        <View style={styles.filaEstrellas}>
-          
-          {[1, 2, 3, 4, 5].map((numero) => (
-            <Pressable key={numero} onPress={() => setEstrellasSeleccionadas(numero as 1 | 2 | 3 | 4 | 5)
-            }
-            >
-              <Text style={styles.estrella}>
-                {numero <= estrellasSeleccionadas ? "★" : "☆"}
-                </Text>
-                </Pressable>
-              ))}
-              </View>
-              
-              <Text style={styles.descripcion}>Tu comentario</Text>
-              <TextInput 
-              style={styles.campoComentario}
-              placeholder="Escribí tu reseña..."
-              value={comentarioNuevo}
-              onChangeText={setComentarioNuevo}
-              multiline
-              />
-              <Pressable
-              style={styles.botonResena}
-              onPress={publicarResena}>
-                <Text style={styles.textoBotonResena}>
-                  {resenaEditando !== null ? "Guardar cambios" : "Publicar reseña"}</Text>
-                </Pressable>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
 
-              <Text style={styles.descripcion}>Promedio: {promedioResenas.toFixed(1)} / 5 ⭐</Text>
-              {resenasOrdenadas.map((item) => (
-                <View key={item.id} style={styles.tarjetaFicha}>
-                  <Text style={styles.descripcion}>{"⭐".repeat(item.estrellas)}</Text>
-                  <Text style={styles.descripcion}>{item.comentario}</Text>
-                  <Pressable
-                  onPress={() => eliminarResena(item.id)}
-                  style={styles.botonEliminar}>
-                    <Text style={styles.textoEliminar}>Eliminar reseña</Text>
-                    </Pressable>
-                    <Pressable
-                    onPress={() => editarResena(item.id)}
-                    style={styles.botonEditar}>
-                      <Text style={styles.textoEditar}>Editar reseña</Text>
-                      </Pressable>
-                      <Pressable
-                      onPress={() => reportarResena(item.id)}
-                      style={styles.botonReportar}>
-                        <Text style={styles.textoReportar}>
-                          {item.reportada ? "Reseña reportada" : "Reportar reseña"}
-                          </Text>
-                          </Pressable>
-                          
-                          {item.respuesta ? (
-                            <Text style={styles.descripcion}>Respuesta del comercio: {item.respuesta}</Text>
-                          ) : (
-                          <>
-                          <TextInput
-                          style={styles.campoComentario}
-                          placeholder="Respuesta del comercio..."
-                          value={respuestaNueva}
-                          onChangeText={setRespuestaNueva}
-                          multiline
-                          />
-                          <Pressable
-                          style={styles.botonRespuesta}
-                          onPress={() => responderResena(item.id)}>
-                            <Text style={styles.textoBotonRespuesta}>Responder</Text>
-                            </Pressable>
-                            </>
-                          )}
-                          </View>
-                        ))}
-                        </View>
-                        </ScrollView>
-                        </SafeAreaView>
-                        );
-                      }
+function FilaFavorito({
+  comercio,
+  onEliminar,
+}: {
+  comercio: any;
+  onEliminar: (id: any) => void;
+}) {
+  const translateX = useSharedValue(0);
+  const swipe = Gesture.Pan()
+    .onUpdate((e) => {
+      translateX.value = Math.min(0, e.translationX);
+    })
+    .onEnd((e) => {
+      if (e.translationX < -100) {
+        onEliminar(comercio.id);
+      }
+      translateX.value = 0;
+    });
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+  return (
+    <GestureDetector gesture={swipe}>
+      <Animated.View style={[styles.fila, style]}>
+        <Text>{comercio.nombre}</Text>
+      </Animated.View>
+    </GestureDetector>
+  );
+}
 
 export interface Resena {
   id: string;
@@ -372,12 +482,21 @@ export interface Resena {
   sincronizada: boolean;
 }
 
+const resena: Resena = {
+  id: "res-2210",
+  comercioId: "con-118",
+  usuarioId: "usr-512",
+  estrellas: 5,
+  comentario: "Tenían el tornillo raro que no conseguía en ningún lado.",
+  respuesta: "¡Gracias Marta! Siempre a las órdenes.",
+  reportada: false,
+  creadaEn: "2026-09-10T17:05:00-03:00",
+  sincronizada: true,
+};
 
 function ordenarResenas(resenas: Resena[]): Resena[] {
   return [...resenas].sort(
-    (a, b) =>
-      new Date(b.creadaEn).getTime() -
-      new Date(a.creadaEn).getTime(),
+    (a, b) => new Date(b.creadaEn).getTime() - new Date(a.creadaEn).getTime(),
   );
 }
 
@@ -386,20 +505,16 @@ function calcularPromedio(resenas: Resena[]): number {
     return 0;
   }
 
-  const total = resenas.reduce(
-    (suma, resena) => suma + resena.estrellas,
-    0,
-  );
+  const total = resenas.reduce((suma, resena) => suma + resena.estrellas, 0);
 
   return total / resenas.length;
 }
 
-
 const styles = StyleSheet.create({
-  fila:{
-    padding:16,
+  fila: {
+    padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
+    borderBottomColor: "#ccc",
   },
   contenedor: {
     flex: 1,
@@ -491,15 +606,15 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   botonEscanear: {
-    backgroundColor: '#0B3A5D',
+    backgroundColor: "#0B3A5D",
     padding: 14,
     borderRadius: 8,
     marginTop: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   textoBoton: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
+    color: "#FFFFFF",
+    fontWeight: "bold",
     fontSize: 15,
   },
   contenedorCamara: {
@@ -508,9 +623,9 @@ const styles = StyleSheet.create({
   },
   camara: {
     height: 300,
-    width: '100%',
+    width: "100%",
     borderRadius: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   botonRespuesta: {
     backgroundColor: "#333333",

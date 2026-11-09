@@ -1,8 +1,18 @@
 import { Tabs } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useEffect } from 'react';
+import { detectarPromocionesNuevas } from '../../service/avisos';
+
+
 
 export default function TabsLayout() {
+
+  useEffect(() => {
+    detectarPromocionesNuevas();
+  }, []);
   return (
+    <GestureHandlerRootView style={{flex:1}}>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -47,5 +57,6 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+    </GestureHandlerRootView>
   );
 }
