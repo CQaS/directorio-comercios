@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { fa } from "zod/v4/locales";
+import { buscarComercios } from "../../service/comercios";
 
 const RUBROS = [
   { id: "Todos", nombre: "Todos" },
@@ -57,25 +57,17 @@ export default function DirectorioScreen() {
 
   const [comercios, setComercios] = useState<any[]>([]);
   useEffect(() => {
-    async function cargarComercios() {
-      try {
-        const respuesta = await fetch("http://192.168.1.42:3000/comercios");
-
-        if (!respuesta.ok) {
-          const errorTexto = await respuesta.text();
-          console.log("ERROR AOI:", respuesta.status, errorTexto);
-          throw new Error("No se pudieron cargar los comercios");
-        }
-
-        const datos = await respuesta.json();
-        setComercios(datos.datos);
-      } catch (error) {
-        console.error("Error al cargar comercios:", error);
-      }
+  async function cargarComercios() {
+    try {
+      const datos = await buscarComercios();
+      setComercios(datos);
+    } catch (error) {
+      console.error("Error al cargar comercios:", error);
     }
+  }
 
-    cargarComercios();
-  }, []);
+  cargarComercios();
+}, []);
 
   const esPantallaAncha = width >= 768;
   const columnas = esPantallaAncha ? 2 : 1;
@@ -89,7 +81,7 @@ export default function DirectorioScreen() {
         rubroSeleccionado === "Todos" || comercio.rubroId === rubroSeleccionado;
       return coincideTexto && coincideRubro;
     });
-  }, [busqueda, rubroSeleccionado]);
+  }, [comercios, busqueda, rubroSeleccionado]);
 
   return (
     <SafeAreaView style={styles.contenedorPrincipal}>

@@ -8,112 +8,41 @@ export async function buscarPromocionesPorComercio(
 
   return promociones.filter((promocion) => promocion.comercioId === comercioId);
 
-  // Implementación de la función asíncrona cuando tengamos la api real. Por ahora, devolvemos datos simulados.
-
-  /* const respuesta = await fetch(
-    `https://api/comercio/${comercioId}/promocion`,
-  );
-
-  if (!respuesta.ok) return null;
-
-  const dato: Promocion = await respuesta.json();
-  return dato; */
-
-  return [
-    {
-      id: "promo-123",
-      comercioId: "1",
-      rubro: "Gastronomía",
-      titulo: "Promo 1",
-      detalle: "Detalle de la promo 1",
-      condiciones: "Válido para consumo en el local",
-      descuento: 10,
-      desde: "2026-10-01",
-      hasta: "2026-10-20",
-      imagenUrl: null,
-      soloApp: false,
-      usos: 10,
-      activa: true,
-    },
-    {
-      id: "promo-456",
-      comercioId: "2",
-      rubro: "Indumentaria",
-      titulo: "Promo 2",
-      detalle: "Detalle de la promo 2",
-      condiciones: "Presentar el código de la app al momento de pagar.",
-      descuento: 20,
-      desde: "2026-10-06",
-      hasta: "2026-10-31",
-      imagenUrl: null,
-      soloApp: true,
-      usos: 10,
-      activa: true,
-    },
-    {
-      id: "promo-789",
-      comercioId: "3",
-      rubro: "Ferretería",
-      titulo: "Promo 3",
-      detalle: "Detalle de la promo 3",
-      condiciones: "Válido para productos seleccionados.",
-      descuento: 30,
-      desde: "2026-10-15",
-      hasta: "2026-11-02",
-      imagenUrl: null,
-      soloApp: false,
-      usos: 10,
-      activa: true,
-    },
-    {
-      id: "promo-869",
-      comercioId: "4",
-      rubro: "Servicios",
-      titulo: "Promo 4",
-      detalle: "Detalle de la promo 4",
-      condiciones: "Solicitar el descuento al contratar el servicio.",
-      descuento: 30,
-      desde: "2026-11-20",
-      hasta: "2026-12-10",
-      imagenUrl: null,
-      soloApp: false,
-      usos: 10,
-      activa: true,
-    },
-    {
-      id: "promo-576",
-      comercioId: "5",
-      rubro: "Servicios",
-      titulo: "Promo 4",
-      detalle: "Detalle de la promo 4",
-      condiciones: "Requiere reserva previa.",
-      descuento: 30,
-      desde: "2026-10-17",
-      hasta: "2026-11-10",
-      imagenUrl: null,
-      soloApp: false,
-      usos: 10,
-      activa: true,
-    },
-  ];
 }
+
 
 export async function buscarPromociones(): Promise<Promocion[]> {
   try {
-    const respuesta = await fetch(`${urlBase}/promociones`);
+    const estados = ["vigentes", "proximas", "por-vencer"];
 
-    if (!respuesta.ok) {
-      throw new Error("No se pudieron obtener las promociones");
-    }
+    const resultados = await Promise.all(
+      estados.map(async (estado) => {
+        const respuesta = await fetch(
+          `${urlBase}/promociones?estado=${estado}`
+        );
 
-    const resultado = await respuesta.json();
+        if (!respuesta.ok) {
+          throw new Error(`No se pudieron obtener las promociones ${estado}`);
+        }
 
-    return resultado.datos;
+        const resultado = await respuesta.json();
+        return resultado.datos as Promocion[];
+      })
+    );
+
+    const promocionesUnicas = new Map<string, Promocion>();
+
+    resultados.flat().forEach((promo) => {
+      promocionesUnicas.set(promo.id, promo);
+    });
+
+    return Array.from(promocionesUnicas.values());
   } catch (error) {
     console.error("Error al buscar promociones:", error);
     return [];
   }
 }
+
 
 export async function obtenerPromocionesPorId(
   id: string,
@@ -131,6 +60,9 @@ export async function obtenerPromocionesPorId(
 export function clasificarPromociones(promociones: Promocion[]) {
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
+
+  const enTresDias = new Date(hoy);
+  enTresDias.setDate(hoy.getDate() + 3);
 
   const enSieteDias = new Date(hoy);
   enSieteDias.setDate(hoy.getDate() + 7);
@@ -150,7 +82,7 @@ export function clasificarPromociones(promociones: Promocion[]) {
         promo.activa &&
         new Date(promo.desde) <= hoy &&
         hasta >= hoy &&
-        hasta <= enSieteDias
+        hasta <= enTresDias
       );
     }),
 
@@ -166,36 +98,48 @@ export async function buscarPromocionesPorRubro(
   rubro: string,
 ): Promise<Promocion[]> {
   try {
-    const promociones = await buscarPromociones();
-
-    const respuesta = await fetch(`${urlBase}/comercios`);
-
-    if (!respuesta.ok) {
-      throw new Error("No se pudieron cargar los comercios");
-    }
-
-    const resultado = await respuesta.json();
-
-    const nombresRubros: Record<string, string> = {
-      "rub-gastronomia": "Gastronomía",
-      "rub-ferreteria": "Ferretería",
-      "rub-indumentaria": "Indumentaria",
-      "rub-servicios": "Servicios",
+    const rubros: Record<string, string> = {
+      "Gastronomía": "rub-gastronomia",
+      "Ferretería y construcción": "rub-ferreteria",
+      "Indumentaria": "rub-indumentaria",
+      "Servicios": "rub-servicios",
+      "Hogar": "rub-hogar",
+      "Salud y farmacia": "rub-salud",
+      "Tecnología": "rub-tecnologia",
+      "Librería": "rub-libreria",
+      "Otros": "rub-otros",
     };
 
-    return promociones.filter((promo) => {
-      const comercio = resultado.datos.find(
-        (item: any) => item.id === promo.comercioId,
-      );
+    const rubroId = rubros[rubro];
 
-      const nombreRubro = nombresRubros[comercio?.rubroId];
+    if (!rubroId) return [];
 
-      return nombreRubro?.toLowerCase() === rubro.toLowerCase();
+    const estados = ["vigentes", "proximas", "por-vencer"];
+
+    const resultados = await Promise.all(
+      estados.map(async (estado) => {
+        const respuesta = await fetch(
+          `${urlBase}/promociones?estado=${estado}&rubroId=${rubroId}`,
+        );
+
+        if (!respuesta.ok) {
+          throw new Error(`No se pudieron obtener las promociones de ${rubro}`);
+        }
+
+        const resultado = await respuesta.json();
+        return resultado.datos as Promocion[];
+      }),
+    );
+
+    const promocionesUnicas = new Map<string, Promocion>();
+
+    resultados.flat().forEach((promo) => {
+      promocionesUnicas.set(promo.id, promo);
     });
+
+    return Array.from(promocionesUnicas.values());
   } catch (error) {
     console.error("Error al buscar promociones por rubro:", error);
     return [];
   }
 }
-
-buscarPromocionesPorRubro;

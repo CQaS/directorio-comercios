@@ -1,12 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  Pressable,
-  TextInput,
-} from "react-native";
+import { View, Text, StyleSheet, Image, Pressable, TextInput, } from "react-native";
 import {
   Gesture,
   GestureDetector,
@@ -23,8 +16,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { registrarCanje } from "../../service/canjes";
-import { guardarResena, eliminarResenaGuardada } from "../../service/resenas";
-import { obtenerMisResenas } from "../../service/resenas";
+import { guardarResena, eliminarResenaGuardada, publicarResenaEnLaApi, editarResenaEnLaApi, eliminarResenaDeLaApi, reportarResenaEnLaApi, obtenerResenasDeComercio, responderResenaEnLaApi, obtenerMisResenasDeLaApi } from "../../service/resenas";
 import {
   agregarFavorito,
   quitarFavorito,
@@ -36,12 +28,7 @@ export default function DetalleComercioScreen() {
   const [permisoCamara, solicitarPermisoCamara] = useCameraPermissions();
   const [escanearQR, setEscanearQR] = useState(false);
   const [resultadoQR, setResultadoQR] = useState("");
-  const [resenas, setResenas] = useState<Resena[]>([
-    resena,
-    ...obtenerMisResenas("usuario-actual").filter(
-      (item) => item.comercioId === String(id),
-    ),
-  ]);
+  const [resenas, setResenas] = useState<Resena[]>([]);
   const [estrellasSeleccionadas, setEstrellasSeleccionadas] = useState<
     1 | 2 | 3 | 4 | 5
   >(5);
@@ -121,6 +108,61 @@ export default function DetalleComercioScreen() {
     }
   }, [id]);
 
+    useEffect(() => {
+    if (!id) return;
+
+    let activo = true;
+
+    async function cargarResenas() {
+      try {
+        const resenasObtenidas = await obtenerResenasDeComercio(String(id));
+
+        if (activo) {
+          setResenas(resenasObtenidas);
+        }
+      } catch (error) {
+        console.error("Error al cargar las reseñas:", error);
+      }
+    }
+
+    cargarResenas();
+
+    return () => {
+      activo = false;
+    };
+  }, [id]);
+  useEffect(() => {
+  let activo = true;
+
+  async function cargarMiResena() {
+    try {
+      const misResenas = await obtenerMisResenasDeLaApi();
+
+      if (!activo) return;
+
+      const miResena = misResenas.find(
+        (resena) => resena.comercioId === String(id),
+      );
+
+      if (miResena) {
+        setResenaEditando(miResena.id);
+        setComentarioNuevo(miResena.comentario);
+        setEstrellasSeleccionadas(miResena.estrellas);
+      }
+    } catch (error) {
+      console.error("Error al buscar mi reseña:", error);
+    }
+  }
+
+  if (id) {
+    cargarMiResena();
+  }
+
+  return () => {
+    activo = false;
+  };
+}, [id]);
+
   useEffect(() => {
     let activo = true;
 
@@ -133,69 +175,75 @@ export default function DetalleComercioScreen() {
         setFavorito(guardado);
       }
     };
+
     verificarFavorito();
+
     return () => {
       activo = false;
     };
   }, [id]);
 
-  if (cargando) {
-    return <Text>Cargando...</Text>;
-  }
+  async function publicarResena() {
+  if (comentarioNuevo.trim() === "") return;
 
-  function publicarResena() {
-    if (comentarioNuevo.trim() === "") {
-      return;
-    }
-
+  try {
     if (resenaEditando !== null) {
-      const actualizada = resenas.find((item) => item.id === resenaEditando);
+      const resenaModificada = await editarResenaEnLaApi(
+        resenaEditando,
+        estrellasSeleccionadas,
+        comentarioNuevo.trim(),
+      );
 
-      if (actualizada) {
-        const resenaModificada = {
-          ...actualizada,
-          estrellas: estrellasSeleccionadas,
-          comentario: comentarioNuevo.trim(),
-        };
+      guardarResena(resenaModificada);
 
-        guardarResena(resenaModificada);
-
-        setResenas((anteriores) =>
-          anteriores.map((item) =>
-            item.id === resenaEditando ? resenaModificada : item,
-          ),
-        );
-      }
+      setResenas((anteriores) =>
+        anteriores.map((item) =>
+          item.id === resenaEditando ? resenaModificada : item,
+        ),
+      );
 
       setResenaEditando(null);
     } else {
-      const nuevaResena: Resena = {
-        id: Date.now().toString(),
-        comercioId: String(id),
-        usuarioId: "usuario-actual",
-        estrellas: estrellasSeleccionadas,
-        comentario: comentarioNuevo.trim(),
-        respuesta: null,
-        reportada: false,
-        creadaEn: new Date().toISOString(),
-        sincronizada: false,
-      };
+      const nuevaResena = await publicarResenaEnLaApi(
+        String(id),
+        estrellasSeleccionadas,
+        comentarioNuevo.trim(),
+      );
+
       guardarResena(nuevaResena);
-      console.log("Reseña publicada:", nuevaResena);
       setResenas((anteriores) => [nuevaResena, ...anteriores]);
     }
+
     setComentarioNuevo("");
     setEstrellasSeleccionadas(5);
+  } catch (error) {
+    console.error("Error al guardar la reseña:", error);
+    alert(
+      error instanceof Error
+        ? error.message
+        : "No se pudo guardar la reseña.",
+    );
   }
+}
 
-  function eliminarResena(resenaId: string) {
+  async function eliminarResena(resenaId: string) {
+  try {
+    await eliminarResenaDeLaApi(resenaId);
+
+    eliminarResenaGuardada(resenaId);
+
     setResenas((anteriores) =>
       anteriores.filter((item) => item.id !== resenaId),
     );
-
-    eliminarResenaGuardada(resenaId);
-    console.log("Reseña eliminada:", resenaId);
+  } catch (error) {
+    console.error("Error al eliminar la reseña:", error);
+    alert(
+      error instanceof Error
+        ? error.message
+        : "No se pudo eliminar la reseña.",
+    );
   }
+}
 
   function editarResena(resenaId: string) {
     const resenaElegida = resenas.find((item) => item.id === resenaId);
@@ -207,38 +255,50 @@ export default function DetalleComercioScreen() {
     setEstrellasSeleccionadas(resenaElegida.estrellas);
   }
 
-  function reportarResena(resenaId: string) {
-    const resenaReportada = resenas.find((item) => item.id === resenaId);
-
-    if (!resenaReportada) return;
-
-    const actualizada = {
-      ...resenaReportada,
-      reportada: true,
-    };
-
-    setResenas((anteriores) =>
-      anteriores.map((item) => (item.id === resenaId ? actualizada : item)),
-    );
-
-    guardarResena(actualizada);
-  }
-
-  function responderResena(resenaId: string) {
-    if (respuestaNueva.trim() === "") {
-      return;
-    }
+  async function reportarResena(resenaId: string) {
+  try {
+    await reportarResenaEnLaApi(resenaId);
 
     setResenas((anteriores) =>
       anteriores.map((item) =>
-        item.id === resenaId && item.respuesta === null
-          ? { ...item, respuesta: respuestaNueva.trim() }
+        item.id === resenaId
+          ? { ...item, reportada: true }
           : item,
       ),
     );
-    setRespuestaNueva("");
+  } catch (error) {
+    console.error("Error al reportar la reseña:", error);
+    alert(
+      error instanceof Error
+        ? error.message
+        : "No se pudo reportar la reseña.",
+    );
   }
+}
+  async function responderResena(resenaId: string, respuestaTexto: string) {
+  try {
+    const resenaActualizada = await responderResenaEnLaApi(
+      resenaId,
+      respuestaTexto,
+    );
 
+    setResenas((anteriores) =>
+      anteriores.map((item) =>
+        item.id === resenaId ? resenaActualizada : item,
+      ),
+    );
+
+    setRespuestaNueva("");
+
+  } catch (error) {
+    console.error("Error al responder la reseña:", error);
+    alert(
+      error instanceof Error
+        ? error.message
+        : "No se pudo responder la reseña.",
+    );
+  }
+}
   async function cambiarFavorito() {
     if (!id || actualizandoFavorito) return;
 
@@ -426,7 +486,7 @@ export default function DetalleComercioScreen() {
                   />
                   <Pressable
                     style={styles.botonRespuesta}
-                    onPress={() => responderResena(item.id)}
+                    onPress={() => responderResena(item.id, respuestaNueva)}
                   >
                     <Text style={styles.textoBotonRespuesta}>Responder</Text>
                   </Pressable>
@@ -481,18 +541,6 @@ export interface Resena {
   creadaEn: string;
   sincronizada: boolean;
 }
-
-const resena: Resena = {
-  id: "res-2210",
-  comercioId: "con-118",
-  usuarioId: "usr-512",
-  estrellas: 5,
-  comentario: "Tenían el tornillo raro que no conseguía en ningún lado.",
-  respuesta: "¡Gracias Marta! Siempre a las órdenes.",
-  reportada: false,
-  creadaEn: "2026-09-10T17:05:00-03:00",
-  sincronizada: true,
-};
 
 function ordenarResenas(resenas: Resena[]): Resena[] {
   return [...resenas].sort(
