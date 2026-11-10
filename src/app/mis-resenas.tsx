@@ -1,27 +1,35 @@
-
 import { useState, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { Resena } from "./comercio/[id]";
 import Button from "../shared/ui/button";
-import { obtenerMisResenasEnLaApi } from "../service/resenas";
+import { obtenerMisResenasDeLaApi } from "../service/resenas";
 
 export default function MisResenasScreen() {
     const [resenas, setResenas] = useState<Resena[]>([]);
     useFocusEffect(
         useCallback(() => {
-    async function cargarResenas() {
-    try {
-        const resultado = await obtenerMisResenasEnLaApi();
-        console.log("Reseñas recibidas de la API:", resultado);
-        setResenas(resultado);
-    } catch (error) {
-        console.log("Error al cargar mis reseñas:", error);
-    }
-}
+    let activo = true;
 
-    cargarResenas();
+    async function cargarMisResenas() {
+    try {
+        const resultado = await obtenerMisResenasDeLaApi();
+
+        if (activo) {
+        console.log("Mis reseñas:", resultado);
+        setResenas(resultado);
+        }
+    } catch (error) {
+        console.error("Error al cargar mis reseñas:", error);
+    }
+    }
+
+    cargarMisResenas();
+
+    return () => {
+    activo = false;
+    };
 }, [])
 );
 
