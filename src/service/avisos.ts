@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { obtenerFavoritos } from "./favoritos";
+import { peticionApi } from "./configuracionApi";
 import {
   obtenerPreferencias,
   programarRecordatorio,
@@ -8,7 +9,7 @@ import {
 } from "./notificaciones";
 import { buscarPromociones } from "./promociones";
 import { Promocion } from "../tipos";
-const urlBase = process.env.EXPO_PUBLIC_API_URL;
+//const urlBase = process.env.EXPO_PUBLIC_API_URL;
 
 const CLAVE_PROMOCIONES_NOTIFICADAS = "@directorio_promociones_notificadas";
 const CLAVE_PROMOCIONES_GUARDADAS = "@directorio_promociones_guardadas";
@@ -25,15 +26,9 @@ export async function obtenerAvisos(): Promise<Promocion[]> {
   const promociones = await buscarPromociones();
 
   try {
-    const respuesta = await fetch(
-      `${urlBase}/comercios?pagina=1&porPagina=1000`,
+    const datosComercios = await peticionApi<any[]>(
+      `/comercios?pagina=1&porPagina=1000`,
     );
-
-    if (!respuesta.ok) {
-      throw new Error("No se pudieron cargar los comercios");
-    }
-
-    const resultado = await respuesta.json();
 
     const nombresRubros: Record<string, string> = {
       "rub-gastronomia": "Gastronomía",
@@ -54,7 +49,7 @@ export async function obtenerAvisos(): Promise<Promocion[]> {
     return promocionesVigentes.filter((promo) => {
       const esFavorito = favoritos.includes(promo.comercioId);
 
-      const comercio = resultado.datos.find(
+      const comercio = datosComercios.find(
         (item: any) => item.id === promo.comercioId,
       );
 
