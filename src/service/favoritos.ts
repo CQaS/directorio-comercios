@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { peticionApi } from "./configuracionApi";
 const urlBase = process.env.EXPO_PUBLIC_API_URL;
 
 const CLAVE_FAVORITOS = "@directorio_comercios_favoritos";
@@ -40,17 +41,11 @@ export async function limpiarFavoritosInvalidos(): Promise<void> {
   try {
     const favoritos = await obtenerFavoritos();
 
-    const respuesta = await fetch(
-      `${urlBase}/comercios?pagina=1&porPagina=1000`,
+    const comercios = await peticionApi<any[]>(
+      `/comercios?pagina=1&porPagina=1000`,
     );
 
-    if (!respuesta.ok) {
-      throw new Error("No se pudieron cargar los comercios");
-    }
-
-    const resultado = await respuesta.json();
-
-    const idsComercios = resultado.datos.map((comercio: any) => comercio.id);
+    const idsComercios = comercios.map((comercio: any) => comercio.id);
 
     const favoritosValidos = favoritos.filter((id) =>
       idsComercios.includes(id),

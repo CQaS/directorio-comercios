@@ -1,7 +1,8 @@
 import { Resena } from "../app/comercio/[id]";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { peticionApi } from "./configuracionApi";
 
-const API_URL = "http://192.168.1.183:3000";
+//const API_URL = "http://192.168.1.183:3000";
 
 let resenasGuardadas: Resena[] = [];
 
@@ -31,7 +32,6 @@ export function eliminarResenaGuardada(resenaId: string): void {
   console.log("Reseñas después de eliminar:", resenasGuardadas);
 }
 
-
 export async function obtenerMisResenasDeLaApi(): Promise<Resena[]> {
   const token = await AsyncStorage.getItem("token");
 
@@ -39,35 +39,31 @@ export async function obtenerMisResenasDeLaApi(): Promise<Resena[]> {
     throw new Error("No se encontró el token de sesión.");
   }
 
-  const respuesta = await fetch(`${API_URL}/yo/resenas`, {
+  const resenas = await peticionApi<Resena[]>(`/yo/resenas`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
   });
 
-  if (!respuesta.ok) {
-    throw new Error("No se pudieron obtener tus reseñas.");
-  }
-
-  const resultado: { datos: Resena[] } = await respuesta.json();
-
-  return resultado.datos;
+  return resenas;
 }
 
 export async function obtenerResenasDeComercio(
   comercioId: string,
 ): Promise<Resena[]> {
-  const respuesta = await fetch(
-    `${API_URL}/comercios/${comercioId}/resenas`,
-  );
+  try {
+    const resenas = await peticionApi<Resena[]>(
+      `/comercios/${comercioId}/resenas`,
+    );
 
-  if (!respuesta.ok) {
-    throw new Error("No se pudieron obtener las reseñas del comercio.");
+    return resenas;
+  } catch (error) {
+    console.error(
+      `Error al obtener las reseñas del comercio ${comercioId}:`,
+      error,
+    );
+    return [];
   }
-
-  const resultado: { datos: Resena[] } = await respuesta.json();
-
-  return resultado.datos;
 }
 
 export async function publicarResenaEnLaApi(
@@ -81,13 +77,12 @@ export async function publicarResenaEnLaApi(
     throw new Error("No se encontró el token de sesión.");
   }
 
-  const respuesta = await fetch(
-    `${API_URL}/comercios/${comercioId}/resenas`,
+  const resenaCreada = await peticionApi<Resena>(
+    `/comercios/${comercioId}/resenas`,
     {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         estrellas,
@@ -96,15 +91,7 @@ export async function publicarResenaEnLaApi(
     },
   );
 
-  if (!respuesta.ok) {
-  const detalle = await respuesta.text();
-  console.log("ERROR AL PUBLICAR:", respuesta.status, detalle);
-  throw new Error(`Error ${respuesta.status}: ${detalle}`);
-  }
-
-  const resultado: { datos: Resena } = await respuesta.json();
-
-  return resultado.datos;
+  return resenaCreada;
 }
 
 export async function editarResenaEnLaApi(
@@ -118,11 +105,11 @@ export async function editarResenaEnLaApi(
     throw new Error("No se encontró el token de sesión.");
   }
 
-  const respuesta = await fetch(`${API_URL}/resenas/${resenaId}`, {
+  // peticionApi maneja la URL dinámica, inyecta el token y extrae .datos automáticamente
+  const resenaActualizada = await peticionApi<Resena>(`/resenas/${resenaId}`, {
     method: "PATCH",
     headers: {
       Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       estrellas,
@@ -130,58 +117,37 @@ export async function editarResenaEnLaApi(
     }),
   });
 
-  if (!respuesta.ok) {
-    throw new Error("No se pudo editar la reseña.");
-  }
-
-  const resultado: { datos: Resena } = await respuesta.json();
-
-  return resultado.datos;
+  return resenaActualizada;
 }
 
-export async function eliminarResenaDeLaApi(
-  resenaId: string,
-): Promise<void> {
+export async function eliminarResenaDeLaApi(resenaId: string): Promise<void> {
   const token = await AsyncStorage.getItem("token");
 
   if (!token) {
     throw new Error("No se encontró el token de sesión.");
   }
 
-  const respuesta = await fetch(`${API_URL}/resenas/${resenaId}`, {
+  await peticionApi(`/resenas/${resenaId}`, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`,
     },
   });
-
-  if (!respuesta.ok) {
-    throw new Error("No se pudo eliminar la reseña.");
-  }
 }
 
-export async function reportarResenaEnLaApi(
-  resenaId: string,
-): Promise<void> {
+export async function reportarResenaEnLaApi(resenaId: string): Promise<void> {
   const token = await AsyncStorage.getItem("token");
 
   if (!token) {
     throw new Error("No se encontró el token de sesión.");
   }
 
-  const respuesta = await fetch(
-    `${API_URL}/resenas/${resenaId}/reportes`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+  await peticionApi(`/resenas/${resenaId}/reportes`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
     },
-  );
-
-  if (!respuesta.ok) {
-    throw new Error("No se pudo reportar la reseña.");
-  }
+  });
 }
 
 export async function responderResenaEnLaApi(
@@ -194,13 +160,12 @@ export async function responderResenaEnLaApi(
     throw new Error("No se encontró el token de sesión.");
   }
 
-  const respuesta = await fetch(
-    `${API_URL}/resenas/${resenaId}/respuesta`,
+  const resenaActualizada = await peticionApi<Resena>(
+    `/resenas/${resenaId}/respuesta`,
     {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         respuesta: respuestaTexto,
@@ -208,11 +173,5 @@ export async function responderResenaEnLaApi(
     },
   );
 
-  if (!respuesta.ok) {
-    throw new Error("No se pudo responder la reseña.");
-  }
-
-  const resultado: { datos: Resena } = await respuesta.json();
-
-  return resultado.datos;
+  return resenaActualizada;
 }

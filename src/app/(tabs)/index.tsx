@@ -57,17 +57,17 @@ export default function DirectorioScreen() {
 
   const [comercios, setComercios] = useState<any[]>([]);
   useEffect(() => {
-  async function cargarComercios() {
-    try {
-      const datos = await buscarComercios();
-      setComercios(datos);
-    } catch (error) {
-      console.error("Error al cargar comercios:", error);
+    async function cargarComercios() {
+      try {
+        const datos = await buscarComercios();
+        setComercios(datos);
+      } catch (error) {
+        console.error("Error al cargar comercios:", error);
+      }
     }
-  }
 
-  cargarComercios();
-}, []);
+    cargarComercios();
+  }, []);
 
   const esPantallaAncha = width >= 768;
   const columnas = esPantallaAncha ? 2 : 1;

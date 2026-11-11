@@ -1,4 +1,5 @@
 import { Promocion } from "../tipos";
+import { peticionApi } from "./configuracionApi";
 const urlBase = process.env.EXPO_PUBLIC_API_URL;
 
 export async function buscarPromocionesPorComercio(
@@ -7,9 +8,7 @@ export async function buscarPromocionesPorComercio(
   const promociones = await buscarPromociones();
 
   return promociones.filter((promocion) => promocion.comercioId === comercioId);
-
 }
-
 
 export async function buscarPromociones(): Promise<Promocion[]> {
   try {
@@ -17,17 +16,11 @@ export async function buscarPromociones(): Promise<Promocion[]> {
 
     const resultados = await Promise.all(
       estados.map(async (estado) => {
-        const respuesta = await fetch(
-          `${urlBase}/promociones?estado=${estado}`
+        const datos = await peticionApi<Promocion[]>(
+          `/promociones?estado=${estado}`,
         );
-
-        if (!respuesta.ok) {
-          throw new Error(`No se pudieron obtener las promociones ${estado}`);
-        }
-
-        const resultado = await respuesta.json();
-        return resultado.datos as Promocion[];
-      })
+        return datos;
+      }),
     );
 
     const promocionesUnicas = new Map<string, Promocion>();
@@ -42,7 +35,6 @@ export async function buscarPromociones(): Promise<Promocion[]> {
     return [];
   }
 }
-
 
 export async function obtenerPromocionesPorId(
   id: string,
@@ -99,15 +91,15 @@ export async function buscarPromocionesPorRubro(
 ): Promise<Promocion[]> {
   try {
     const rubros: Record<string, string> = {
-      "Gastronomía": "rub-gastronomia",
+      Gastronomía: "rub-gastronomia",
       "Ferretería y construcción": "rub-ferreteria",
-      "Indumentaria": "rub-indumentaria",
-      "Servicios": "rub-servicios",
-      "Hogar": "rub-hogar",
+      Indumentaria: "rub-indumentaria",
+      Servicios: "rub-servicios",
+      Hogar: "rub-hogar",
       "Salud y farmacia": "rub-salud",
-      "Tecnología": "rub-tecnologia",
-      "Librería": "rub-libreria",
-      "Otros": "rub-otros",
+      Tecnología: "rub-tecnologia",
+      Librería: "rub-libreria",
+      Otros: "rub-otros",
     };
 
     const rubroId = rubros[rubro];
@@ -118,16 +110,10 @@ export async function buscarPromocionesPorRubro(
 
     const resultados = await Promise.all(
       estados.map(async (estado) => {
-        const respuesta = await fetch(
-          `${urlBase}/promociones?estado=${estado}&rubroId=${rubroId}`,
+        const datos = await peticionApi<Promocion[]>(
+          `/promociones?estado=${estado}&rubroId=${rubroId}`,
         );
-
-        if (!respuesta.ok) {
-          throw new Error(`No se pudieron obtener las promociones de ${rubro}`);
-        }
-
-        const resultado = await respuesta.json();
-        return resultado.datos as Promocion[];
+        return datos;
       }),
     );
 

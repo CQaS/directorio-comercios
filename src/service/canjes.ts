@@ -1,155 +1,123 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { peticionApi } from "./configuracionApi";
 
 export interface Canje {
-    id: string;
-    promocionId: string;
-    comercioId: string;
-    codigo: string;
-    fecha: string;
+  id: string;
+  promocionId: string;
+  comercioId: string;
+  codigo: string;
+  fecha: string;
 }
 
-const CLAVE_CANJES = '@canjes';
+const CLAVE_CANJES = "@canjes";
 
 export async function obtenerCanjes(): Promise<Canje[]> {
-    const datos = await AsyncStorage.getItem(CLAVE_CANJES);
-    
-    if (datos === null) {
-    return [];
-}
+  const datos = await AsyncStorage.getItem(CLAVE_CANJES);
 
-return JSON.parse(datos) as Canje[];
+  if (datos === null) {
+    return [];
+  }
+
+  return JSON.parse(datos) as Canje[];
 }
 
 export async function registrarCanje(
-    promocionId: string,
-    comercioId: string,
-    codigo: string,
+  promocionId: string,
+  comercioId: string,
+  codigo: string,
 ): Promise<boolean> {
-    const canjes = await obtenerCanjes();
-    
-    const yaRegistrado = canjes.some(
-    (canje) => canje.codigo === codigo,
-);
+  const canjes = await obtenerCanjes();
 
-if (yaRegistrado) {
+  const yaRegistrado = canjes.some((canje) => canje.codigo === codigo);
+
+  if (yaRegistrado) {
     return false;
-}
+  }
 
-const nuevoCanje: Canje = {
+  const nuevoCanje: Canje = {
     id: `${Date.now()}`,
     promocionId,
     comercioId,
     codigo,
     fecha: new Date().toISOString(),
-};
+  };
 
-canjes.push(nuevoCanje);
+  canjes.push(nuevoCanje);
 
-await AsyncStorage.setItem(
-    CLAVE_CANJES,
-    JSON.stringify(canjes),
-);
+  await AsyncStorage.setItem(CLAVE_CANJES, JSON.stringify(canjes));
 
-return true;
+  return true;
 }
 
-export async function contarCanjesPorPromocion(promocionId: string): Promise<number> {
-const canjes = await obtenerCanjes();
+export async function contarCanjesPorPromocion(
+  promocionId: string,
+): Promise<number> {
+  const canjes = await obtenerCanjes();
 
-return canjes.filter(
-    (canje) => canje.promocionId === promocionId).length;
+  return canjes.filter((canje) => canje.promocionId === promocionId).length;
 }
-
-const API_URL = "http://192.168.1.183:3000";
-
 
 export async function generarCodigoPromocion(
-    promocionId: string,
+  promocionId: string,
 ): Promise<string> {
-    const token = await AsyncStorage.getItem("token");
-    
-    if (!token) {
+  const token = await AsyncStorage.getItem("token");
+  if (!token) {
     throw new Error("No se encontró el token de sesión.");
-}
+  }
 
-const respuesta = await fetch(
-    `${API_URL}/promociones/${promocionId}/usos`,
+  const resultado = await peticionApi<{ codigo: string }>(
+    `/promociones/${promocionId}/usos`,
     {
-        method: "POST",
-        headers: {
+      method: "POST",
+      headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
+      },
     },
-    },
-);
+  );
 
-if (!respuesta.ok) {
-    throw new Error("No se pudo generar el código de la promoción.");
+  return resultado.codigo;
 }
-
-const resultado = await respuesta.json();
-return resultado.datos.codigo;
-}
-
-
-
 
 export async function obtenerCanjesDeLaApi(): Promise<Canje[]> {
-const token = await AsyncStorage.getItem("token");
-
-if (!token) {
+  const token = await AsyncStorage.getItem("token");
+  if (!token) {
     throw new Error("No se encontró el token de sesión.");
-}
+  }
 
-const respuesta = await fetch(`${API_URL}/yo/usos`, {
+  const usos = await peticionApi<
+    {
+      id: string;
+      promocionId: string;
+      usuarioId: string;
+      codigo: string;
+      validadoEn: string | null;
+    }[]
+  >(`/yo/usos`, {
     headers: {
-        Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
     },
-});
+  });
 
-if (!respuesta.ok) {
-    throw new Error("No se pudieron obtener los canjes.");
-}
-
-const resultado: {
-    datos: {
-        id: string;
-        promocionId: string;
-        usuarioId: string;
-        codigo: string;
-        validadoEn: string | null;
-    }[];
-} = await respuesta.json();
-
-return resultado.datos.map((uso) => ({
+  return usos.map((uso) => ({
     id: uso.id,
     promocionId: uso.promocionId,
     comercioId: "",
     codigo: uso.codigo,
     fecha: uso.validadoEn ?? "",
-}));
+  }));
 }
 
 export async function validarCanjeEnLaApi(codigo: string): Promise<void> {
-    const token = await AsyncStorage.getItem("token");
-    
-    if (!token) {
+  const token = await AsyncStorage.getItem("token");
+  if (!token) {
     throw new Error("No se encontró el token de sesión.");
-}
+  }
 
-const respuesta = await fetch(`${API_URL}/mi-comercio/usos/validar`, {
+  await peticionApi(`/mi-comercio/usos/validar`, {
     method: "POST",
     headers: {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ codigo }),
-});
-
-if (!respuesta.ok) {
-    const resultado = await respuesta.json();
-    throw new Error(
-    resultado.mensaje || "No se pudo validar el canje."
-    );
-}
+  });
 }
