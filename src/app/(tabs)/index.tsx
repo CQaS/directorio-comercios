@@ -10,7 +10,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { tabsIndexStyles as styles } from "../../styles/tabs-Index.styles";
-import { buscarComercios } from "../../service/comercios";
+import { buscarComerciosConEstado } from "../../service/comercios";
+import { Comercio } from "../../tipos";
 
 const RUBROS = [
   { id: "Todos", nombre: "Todos" },
@@ -55,17 +56,27 @@ export default function DirectorioScreen() {
   const [busqueda, setBusqueda] = useState("");
   const [rubroSeleccionado, setRubroSeleccionado] = useState("Todos");
 
-  const [comercios, setComercios] = useState<any[]>([]);
-  useEffect(() => {
-    async function cargarComercios() {
-      try {
-        const datos = await buscarComercios();
-        setComercios(datos);
-      } catch (error) {
-        console.error("Error al cargar comercios:", error);
-      }
-    }
+  const [comercios, setComercios] = useState<Comercio[]>([]);
+  const [desdeCache, setDesdeCache] = useState(false);
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
 
+  async function cargarComercios() {
+    setErrorCarga(null);
+    try {
+      const resultado = await buscarComerciosConEstado();
+      setComercios(resultado.comercios);
+      setDesdeCache(resultado.desdeCache);
+    } catch (error) {
+      console.error("Error al cargar comercios:", error);
+      setErrorCarga(
+        error instanceof Error
+          ? error.message
+          : "No se pudieron cargar los comercios.",
+      );
+    }
+  }
+
+  useEffect(() => {
     cargarComercios();
   }, []);
 
@@ -88,6 +99,12 @@ export default function DirectorioScreen() {
       <View style={styles.encabezado}>
         <Text style={styles.titulo}>Directorio Comercial</Text>
         <Text style={styles.subtitulo}>Concepción del Uruguay</Text>
+
+        {desdeCache && (
+          <Text style={styles.avisoOffline}>
+            Sin conexión: mostrando comercios guardados en este dispositivo.
+          </Text>
+        )}
 
         <TextInput
           value={busqueda}
@@ -124,6 +141,15 @@ export default function DirectorioScreen() {
           }}
         />
       </View>
+
+      {errorCarga && (
+        <View style={styles.estadoSinDatos}>
+          <Text style={styles.textoSinDatos}>{errorCarga}</Text>
+          <Pressable onPress={cargarComercios} accessibilityRole="button">
+            <Text style={styles.reintentar}>Reintentar</Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* Listado con navegación a la ficha */}
       <FlatList
