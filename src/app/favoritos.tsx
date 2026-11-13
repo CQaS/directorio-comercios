@@ -1,15 +1,18 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { View, Text, StyleSheet, Pressable, FlatList } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback } from "react";
-const urlBase = process.env.EXPO_PUBLIC_API_URL;
+import { favoritosStyles as styles } from "../styles/favoritos.styles";
 
 import { obtenerFavoritos, quitarFavorito } from "../service/favoritos";
+import { buscarComercios } from "../service/comercios";
+import { Comercio } from "../tipos";
+import { PantallaCarga } from "../components/PantallaCarga";
 
 export default function FavoritosScreen() {
   const [favoritos, setFavoritos] = useState<string[]>([]);
-  const [comercios, setComercios] = useState<any[]>([]);
+  const [comercios, setComercios] = useState<Comercio[]>([]);
+  const [cargando, setCargando] = useState(true);
 
   const cargarFavoritos = async () => {
     const ids = await obtenerFavoritos();
@@ -23,43 +26,32 @@ export default function FavoritosScreen() {
   );
 
   useEffect(() => {
-    async function cargarComercios() {
+    async function cargarDatosComercios() {
       try {
-        const respuesta = await fetch(`${urlBase}/comercios`);
-
-        if (!respuesta.ok) {
-          throw new Error("No se pudieron cargar los comercios");
-        }
-
-        const resultado = await respuesta.json();
-
-        setComercios(resultado.datos);
+        const listaComercios = await buscarComercios();
+        setComercios(listaComercios);
       } catch (error) {
-        console.error("Error al cargar comercios:", error);
+        console.error("Error al cargar comercios en favoritos:", error);
+      } finally {
+        setCargando(false);
       }
     }
 
-    cargarComercios();
+    cargarDatosComercios();
   }, []);
+
+  const eliminarFavoritoDeLista = async (id: string) => {
+    await quitarFavorito(id);
+    await cargarFavoritos();
+  };
 
   const comerciosFavoritos = comercios.filter((comercio) =>
     favoritos.includes(comercio.id),
   );
 
-  console.log("FAVORITOS GUARDADOS:", favoritos);
-  console.log(
-    "LLEGO EL TORNILLO?:",
-    comercios.some((c) => c.id === "com-118"),
-  );
-  console.log(
-    "COMERCIOS FAVORITOS:",
-    comerciosFavoritos.map((c) => c.nombre),
-  );
-
-  const eliminarFavorito = async (id: string) => {
-    await quitarFavorito(id);
-    await cargarFavoritos();
-  };
+  if (cargando) {
+    return <PantallaCarga />;
+  }
 
   return (
     <SafeAreaView style={styles.contenedor}>
@@ -89,7 +81,7 @@ export default function FavoritosScreen() {
                 <Text style={styles.detalle}>{item.rubroId}</Text>
               </Pressable>
 
-              <Pressable onPress={() => eliminarFavorito(item.id)}>
+              <Pressable onPress={() => eliminarFavoritoDeLista(item.id)}>
                 <Text style={styles.eliminar}>Quitar</Text>
               </Pressable>
             </View>
@@ -99,56 +91,3 @@ export default function FavoritosScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  contenedor: {
-    flex: 1,
-    backgroundColor: "#F4F6F8",
-    padding: 16,
-  },
-  encabezado: {
-    marginBottom: 20,
-  },
-  volver: {
-    color: "#0B3A5D",
-    fontSize: 16,
-    marginBottom: 16,
-  },
-  titulo: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#0B3A5D",
-  },
-  vacio: {
-    color: "#64748B",
-    fontSize: 15,
-    marginTop: 20,
-  },
-  tarjeta: {
-    backgroundColor: "#FFFFFF",
-    padding: 16,
-    borderRadius: 10,
-    marginBottom: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  info: {
-    flex: 1,
-  },
-  nombre: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#0F172A",
-  },
-  detalle: {
-    fontSize: 13,
-    color: "#64748B",
-    marginTop: 4,
-  },
-  eliminar: {
-    color: "#D9534F",
-    fontWeight: "bold",
-    padding: 8,
-  },
-});

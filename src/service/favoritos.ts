@@ -1,6 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { peticionApi } from "./configuracionApi";
-const urlBase = process.env.EXPO_PUBLIC_API_URL;
 
 const CLAVE_FAVORITOS = "@directorio_comercios_favoritos";
 
