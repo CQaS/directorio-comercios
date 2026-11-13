@@ -16,11 +16,19 @@ import {
   guardarPreferencias,
 } from "../../service/notificaciones";
 import { reprogramarRecordatoriosPendientes } from "../../service/avisos";
+import { useSesion } from "../../contexto/sesion";
+import { hayBiometria, pedirBiometria } from "../../service/biometria";
+import { biometriaActivada, guardarBiometria } from "../../service/sesion";
+
+
 const urlBase = process.env.EXPO_PUBLIC_API_URL;
 
 export default function YoScreen() {
   const [avisosActivos, setAvisosActivos] = useState(true);
-  const [rol, setRol] = useState<"vecino" | "comercio">("vecino");
+  
+  const { estado, usuario, salir } = useSesion();
+  const [hayLector, setHayLector] = useState(false);
+  const [usaHuella, setUsaHuella] = useState(false);
 
   const [cantidadFavoritos, setCantidadFavoritos] = useState(0);
 
@@ -78,6 +86,16 @@ export default function YoScreen() {
     cargarPreferencias();
   }, []);
 
+  useEffect(() => {
+    const cargarHuella = async () => {
+      setHayLector(await hayBiometria());
+      setUsaHuella(await biometriaActivada());
+    };
+
+    cargarHuella();
+  }, [])
+
+
   return (
     <SafeAreaView style={styles.container} edges={["bottom", "left", "right"]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -87,11 +105,11 @@ export default function YoScreen() {
             <Ionicons name="person" size={40} color="#FFFFFF" />
           </View>
           <View style={styles.headerInfo}>
-            <Text style={styles.title}>Marta Giménez</Text>
-            <Text style={styles.subtitle}>marta@mail.com</Text>
+            <Text style={styles.title}>{usuario?.nombre ?? "Invitado"}</Text>
+            <Text style={styles.subtitle}>{usuario?.email ?? "Sin cuenta"}</Text>
             <View style={styles.badge}>
               <Text style={styles.badgeText}>
-                Rol: {rol === "vecino" ? "Vecino" : "Comercio"}
+                Rol: {usuario?.rol === "comercio" ? "Comercio" : "Vecino"}
               </Text>
             </View>
           </View>
@@ -211,8 +229,48 @@ export default function YoScreen() {
           </View>
         </View>
 
+
+        {estado === "autenticado" && hayLector && (
+          <>
+            <Text style={styles.sectionTitle}>Seguridad</Text>
+            <View style={styles.card}>
+              <View style={styles.rowItem}>
+                <View style={styles.rowLeft}>
+                  <Ionicons
+                    name="finger-print-outline"
+                    size={22}
+                    color="#0B3A5D"
+                  />
+                  <View>
+                    <Text style={styles.rowText}>Pedir huella al abrir</Text>
+                    <Text style={styles.rowSubtext}>
+                      Protege tu cuenta si te prestan el teléfono
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={usaHuella}
+                  onValueChange={async (nuevoValor) => {
+                    if (
+                      nuevoValor &&
+                      !(await pedirBiometria("Confirmá para activarlo"))
+                    ) {
+                      return;
+                    }
+                    await guardarBiometria(nuevoValor);
+                    setUsaHuella(nuevoValor);
+                  }}
+                  trackColor={{ false: "#D8E0E8", true: "#0B3A5D" }}
+                />
+              </View>
+            </View>
+          </>
+        )}
+
+
+
         {/* Simulador de cambio de rol para probar vista de comercio */}
-        <Text style={styles.sectionTitle}>Modo de Prueba (Cátedra)</Text>
+        {/*<Text style={styles.sectionTitle}>Modo de Prueba (Cátedra)</Text>
         <Pressable
           style={styles.buttonSwitch}
           role="button"
@@ -222,7 +280,22 @@ export default function YoScreen() {
           <Text style={styles.buttonSwitchText}>
             Cambiar a vista {rol === "vecino" ? "Comercio" : "Vecino"}
           </Text>
+        </Pressable>*/}
+
+        
+        <Pressable
+          style={styles.buttonSalir}
+          role="button"
+          accessibilityLabel={
+            estado === "invitado" ? "Iniciar sesión" : "Cerrar sesión"
+          }
+          onPress={salir}
+        >
+          <Text style={styles.buttonSalirText}>
+            {estado === "invitado" ? "Iniciar sesión" : "Cerrar sesión"}
+          </Text>
         </Pressable>
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -320,15 +393,17 @@ const styles = StyleSheet.create({
     backgroundColor: "#F1F5F9",
     marginLeft: 50,
   },
-  buttonSwitch: {
-    backgroundColor: "#0B3A5D",
+  buttonSalir: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1.5,
+    borderColor: "#991B1B",
     padding: 14,
     borderRadius: 8,
     alignItems: "center",
     marginTop: 12,
   },
-  buttonSwitchText: {
-    color: "#FFFFFF",
+  buttonSalirText: {
+    color: "#991B1B",
     fontWeight: "bold",
     fontSize: 15,
   },

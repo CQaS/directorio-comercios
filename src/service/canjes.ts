@@ -1,5 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { peticionApi } from "./configuracionApi";
+import { leerToken } from "./sesion";
+
 
 export interface Canje {
   id: string;
@@ -60,7 +62,7 @@ export async function contarCanjesPorPromocion(
 export async function generarCodigoPromocion(
   promocionId: string,
 ): Promise<string> {
-  const token = await AsyncStorage.getItem("token");
+  const token = await leerToken();
   if (!token) {
     throw new Error("No se encontró el token de sesión.");
   }
@@ -79,7 +81,7 @@ export async function generarCodigoPromocion(
 }
 
 export async function obtenerCanjesDeLaApi(): Promise<Canje[]> {
-  const token = await AsyncStorage.getItem("token");
+  const token = await leerToken();
   if (!token) {
     throw new Error("No se encontró el token de sesión.");
   }
@@ -108,7 +110,7 @@ export async function obtenerCanjesDeLaApi(): Promise<Canje[]> {
 }
 
 export async function validarCanjeEnLaApi(codigo: string): Promise<void> {
-  const token = await AsyncStorage.getItem("token");
+  const token = await leerToken();
   if (!token) {
     throw new Error("No se encontró el token de sesión.");
   }
