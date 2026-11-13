@@ -20,6 +20,28 @@ export const tabsIndexStyles = StyleSheet.create({
     color: "#64748B",
     marginBottom: 10,
   },
+  avisoOffline: {
+    color: "#854D0E",
+    backgroundColor: "#FEF3C7",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 10,
+    fontSize: 13,
+  },
+  estadoSinDatos: {
+    alignItems: "center",
+    padding: 20,
+  },
+  textoSinDatos: {
+    color: "#475569",
+    textAlign: "center",
+  },
+  reintentar: {
+    color: "#0B3A5D",
+    fontWeight: "bold",
+    marginTop: 10,
+  },
   inputBuscador: {
     backgroundColor: "#FFFFFF",
     borderWidth: 1,

@@ -15,13 +15,29 @@ async function llamar<T>(ruta: string, opciones: RequestInit = {}): Promise<T> {
         clearTimeout(timer);
     }
 
-  const resultado = await respuesta.json().catch(() => null);
+  const resultado: unknown = await respuesta.json().catch(() => null);
     if (!respuesta.ok) {
+        const detalle =
+            resultado && typeof resultado === "object" && "error" in resultado
+                ? resultado.error
+                : null;
         throw new ErrorApi(
-        resultado?.error?.mensaje ?? `El servidor respondió ${respuesta.status}`,
-        resultado?.error?.codigo,
+        detalle && typeof detalle === "object" && "mensaje" in detalle
+            ? String(detalle.mensaje)
+            : `El servidor respondió ${respuesta.status}`,
+        detalle && typeof detalle === "object" && "codigo" in detalle
+            ? String(detalle.codigo)
+            : undefined,
         respuesta.status,
         );
+    }
+    if (
+        !resultado ||
+        typeof resultado !== "object" ||
+        !("datos" in resultado) ||
+        resultado.datos === null
+    ) {
+        throw new ErrorApi("El servidor devolvió una respuesta inválida.");
     }
     return resultado.datos as T;
 }

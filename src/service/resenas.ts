@@ -1,5 +1,4 @@
 import { Resena } from "../app/comercio/[id]";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { peticionApi } from "./configuracionApi";
 import { leerToken, leerUsuario  } from "./sesion";
 import { buscarComercios } from "./comercios";

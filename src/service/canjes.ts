@@ -1,6 +1,6 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { peticionApi } from "./configuracionApi";
 import { leerToken } from "./sesion";
+import { obtenerBaseDatos } from "./baseDatos";
 
 
 export interface Canje {
@@ -11,16 +11,13 @@ export interface Canje {
   fecha: string;
 }
 
-const CLAVE_CANJES = "@canjes";
-
 export async function obtenerCanjes(): Promise<Canje[]> {
-  const datos = await AsyncStorage.getItem(CLAVE_CANJES);
-
-  if (datos === null) {
-    return [];
-  }
-
-  return JSON.parse(datos) as Canje[];
+  const db = await obtenerBaseDatos();
+  return db.getAllAsync<Canje>(
+    `SELECT id, promocion_id AS promocionId,
+      comercio_id AS comercioId, codigo, fecha
+      FROM canjes ORDER BY fecha DESC`,
+  );
 }
 
 export async function registrarCanje(
@@ -28,14 +25,7 @@ export async function registrarCanje(
   comercioId: string,
   codigo: string,
 ): Promise<boolean> {
-  const canjes = await obtenerCanjes();
-
-  const yaRegistrado = canjes.some((canje) => canje.codigo === codigo);
-
-  if (yaRegistrado) {
-    return false;
-  }
-
+  const db = await obtenerBaseDatos();
   const nuevoCanje: Canje = {
     id: `${Date.now()}`,
     promocionId,
@@ -44,19 +34,28 @@ export async function registrarCanje(
     fecha: new Date().toISOString(),
   };
 
-  canjes.push(nuevoCanje);
-
-  await AsyncStorage.setItem(CLAVE_CANJES, JSON.stringify(canjes));
-
-  return true;
+  const resultado = await db.runAsync(
+    `INSERT OR IGNORE INTO canjes
+      (id, promocion_id, comercio_id, codigo, fecha)
+      VALUES (?, ?, ?, ?, ?)`,
+    nuevoCanje.id,
+    nuevoCanje.promocionId,
+    nuevoCanje.comercioId,
+    nuevoCanje.codigo,
+    nuevoCanje.fecha,
+  );
+  return resultado.changes > 0;
 }
 
 export async function contarCanjesPorPromocion(
   promocionId: string,
 ): Promise<number> {
-  const canjes = await obtenerCanjes();
-
-  return canjes.filter((canje) => canje.promocionId === promocionId).length;
+  const db = await obtenerBaseDatos();
+  const resultado = await db.getFirstAsync<{ total: number }>(
+    "SELECT COUNT(*) AS total FROM canjes WHERE promocion_id = ?",
+    promocionId,
+  );
+  return resultado?.total ?? 0;
 }
 
 export async function generarCodigoPromocion(
