@@ -9,7 +9,6 @@ import {
 } from "./notificaciones";
 import { buscarPromociones } from "./promociones";
 import { Promocion } from "../tipos";
-//const urlBase = process.env.EXPO_PUBLIC_API_URL;
 
 const CLAVE_PROMOCIONES_NOTIFICADAS = "@directorio_promociones_notificadas";
 const CLAVE_PROMOCIONES_GUARDADAS = "@directorio_promociones_guardadas";

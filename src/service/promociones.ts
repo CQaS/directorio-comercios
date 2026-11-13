@@ -1,6 +1,5 @@
 import { Promocion } from "../tipos";
 import { peticionApi } from "./configuracionApi";
-const urlBase = process.env.EXPO_PUBLIC_API_URL;
 
 export async function buscarPromocionesPorComercio(
   comercioId: string,

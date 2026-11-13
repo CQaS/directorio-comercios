@@ -2,99 +2,65 @@ import { useState, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
+import { misResenasStyles as styles } from "../styles/misResenas.styles";
 import { Resena } from "./comercio/[id]";
 import Button from "../shared/ui/button";
 import { obtenerMisResenasDeLaApi } from "../service/resenas";
 
 export default function MisResenasScreen() {
-    const [resenas, setResenas] = useState<Resena[]>([]);
-    useFocusEffect(
-        useCallback(() => {
-    let activo = true;
+  const [resenas, setResenas] = useState<Resena[]>([]);
+  useFocusEffect(
+    useCallback(() => {
+      let activo = true;
 
-    async function cargarMisResenas() {
-    try {
-        const resultado = await obtenerMisResenasDeLaApi();
+      async function cargarMisResenas() {
+        try {
+          const resultado = await obtenerMisResenasDeLaApi();
 
-        if (activo) {
-        console.log("Mis reseñas:", resultado);
-        setResenas(resultado);
+          if (activo) {
+            console.log("Mis reseñas:", resultado);
+            setResenas(resultado);
+          }
+        } catch (error) {
+          console.error("Error al cargar mis reseñas:", error);
         }
-    } catch (error) {
-        console.error("Error al cargar mis reseñas:", error);
-    }
-    }
+      }
 
-    cargarMisResenas();
+      cargarMisResenas();
 
-    return () => {
-    activo = false;
-    };
-}, [])
-);
+      return () => {
+        activo = false;
+      };
+    }, []),
+  );
 
-console.log("Cantidad de mis reseñas:", resenas.length);
-return (
+  console.log("Cantidad de mis reseñas:", resenas.length);
+  return (
     <SafeAreaView style={styles.container}>
-            <Button title="Volver" />
-        <ScrollView contentContainerStyle={styles.contenido}>
+      <Button title="Volver" />
+      <ScrollView contentContainerStyle={styles.contenido}>
         <Text style={styles.titulo}>Mis reseñas</Text>
 
         {resenas.length === 0 ? (
-            <Text style={styles.mensaje}>Todavía no publicaste ninguna reseña.</Text>
+          <Text style={styles.mensaje}>
+            Todavía no publicaste ninguna reseña.
+          </Text>
         ) : (
-            resenas.map((resena) => (
+          resenas.map((resena) => (
             <View key={resena.id} style={styles.tarjeta}>
-                <Text style={styles.estrellas}>
+              <Text style={styles.estrellas}>
                 {"⭐".repeat(resena.estrellas)}
+              </Text>
+              <Text style={styles.comentario}>{resena.comentario}</Text>
+              {resena.respuesta && (
+                <Text style={styles.respuesta}>
+                  Respuesta del comercio: {resena.respuesta}
                 </Text>
-                <Text style={styles.comentario}>{resena.comentario}</Text>
-                {resena.respuesta && (
-                <Text style={styles.respuesta}>Respuesta del comercio: {resena.respuesta}</Text>
-                )}
+              )}
             </View>
-            ))
+          ))
         )}
-        </ScrollView>
+      </ScrollView>
     </SafeAreaView>
-    );
+  );
 }
-
-const styles = StyleSheet.create({
-    container: {
-    flex: 1,
-    backgroundColor: "#F4F6F8",
-},
-contenido: {
-    padding: 20,
-},
-titulo: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#0B3A5D",
-    marginBottom: 16,
-},
-mensaje: {
-    fontSize: 16,
-    color: "#64748B",
-},
-tarjeta: {
-    backgroundColor: "#ffffff",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-},
-estrellas: {
-    fontSize: 18,
-    marginBottom: 8,
-},
-comentario: {
-    fontSize: 16,
-    color: "#334155",
-},
-respuesta: {
-    marginTop: 10,
-    color: "#64748B",
-    fontSize: 14,
-},
-});

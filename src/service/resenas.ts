@@ -36,7 +36,7 @@ export async function obtenerMisResenasDeLaApi(): Promise<Resena[]> {
   const token = await AsyncStorage.getItem("token");
 
   if (!token) {
-    throw new Error("No se encontró el token de sesión.");
+    throw new Error("NO_AUTORIZADO: No se encontró el token de sesión.");
   }
 
   const resenas = await peticionApi<Resena[]>(`/yo/resenas`, {

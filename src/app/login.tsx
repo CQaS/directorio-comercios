@@ -1,80 +1,82 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
   TextInput,
   Pressable,
-  StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useForm, Controller, type Resolver } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+  ActivityIndicator,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import { useForm, Controller, type Resolver } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { loginStyles as styles } from "../styles/login.style";
 import { useSesion } from "../contexto/sesion";
 
 const esquemaIngreso = z.object({
-    email: z.string().min(1, "El email es obligatorio").email("Email inválido"),
-    clave: z.string().min(1, "La contraseña es obligatoria"),
-})
+  email: z.string().min(1, "El email es obligatorio").email("Email inválido"),
+  clave: z.string().min(1, "La contraseña es obligatoria"),
+});
 
 const esquemaRegistro = z.object({
-    nombre: z.string().trim().min(1, "El nombre es obligatorio"),
-    email: z.string().min(1, "El email es obligatorio").email("Email inválido"),
-    clave: z.string().min(8, "Debe tener al menos 8 caracteres").max(100, 'Máximo 100 caracteres'),
-})
+  nombre: z.string().trim().min(1, "El nombre es obligatorio"),
+  email: z.string().min(1, "El email es obligatorio").email("Email inválido"),
+  clave: z
+    .string()
+    .min(8, "Debe tener al menos 8 caracteres")
+    .max(100, "Máximo 100 caracteres"),
+});
 
 type FormularioDatos = z.infer<typeof esquemaRegistro>;
 
 export default function LoginScreen() {
-  const { ingresar, registrar, entrarComoInvitado } = useSesion()
-  const [modoRegistro, setModoRegistro] = useState(false)
-  const [errorServidor, setErrorServidor] = useState<string | null>(null)
+  const { ingresar, registrar, entrarComoInvitado } = useSesion();
+  const [modoRegistro, setModoRegistro] = useState(false);
+  const [errorServidor, setErrorServidor] = useState<string | null>(null);
 
-    const {
-      control,
-      handleSubmit,
-      reset,
-      formState: { errors, isSubmitting },
-    } = useForm<FormularioDatos>({
-      resolver: zodResolver(
-        modoRegistro ? esquemaRegistro : esquemaIngreso,
-      ) as unknown as Resolver<FormularioDatos>,
-      defaultValues: { nombre: '', email: '', clave: '' },
-    })
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<FormularioDatos>({
+    resolver: zodResolver(
+      modoRegistro ? esquemaRegistro : esquemaIngreso,
+    ) as unknown as Resolver<FormularioDatos>,
+    defaultValues: { nombre: "", email: "", clave: "" },
+  });
 
   const cambiarModo = () => {
     setModoRegistro((anterior) => !anterior);
     setErrorServidor(null);
     reset();
-  }
+  };
 
   const onSubmit = async (datos: FormularioDatos) => {
-    setErrorServidor(null)
-    
+    setErrorServidor(null);
+
     try {
       if (modoRegistro) {
         await registrar(datos.nombre.trim(), datos.email.trim(), datos.clave);
       } else {
         await ingresar(datos.email.trim(), datos.clave);
       }
-      
     } catch (error) {
       setErrorServidor(
-        error instanceof Error ? error.message : 'Algo salió mal. Probá de nuevo.',
+        error instanceof Error
+          ? error.message
+          : "Algo salió mal. Probá de nuevo.",
       );
     }
-      
-  }
-
+  };
 
   return (
     <SafeAreaView style={styles.pantallaSegura}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.tecladoContenedor}
       >
         <View style={styles.tarjeta}>
@@ -97,7 +99,9 @@ export default function LoginScreen() {
                   />
                 )}
               />
-              {errors.nombre && <Text style={styles.textoError}>{errors.nombre.message}</Text>}
+              {errors.nombre && (
+                <Text style={styles.textoError}>{errors.nombre.message}</Text>
+              )}
             </View>
           )}
 
@@ -118,7 +122,9 @@ export default function LoginScreen() {
                 />
               )}
             />
-            {errors.email && <Text style={styles.textoError}>{errors.email.message}</Text>}
+            {errors.email && (
+              <Text style={styles.textoError}>{errors.email.message}</Text>
+            )}
           </View>
 
           <View style={styles.campo}>
@@ -127,7 +133,11 @@ export default function LoginScreen() {
               name="clave"
               render={({ field: { onChange, onBlur, value } }) => (
                 <TextInput
-                  placeholder={modoRegistro ? 'Contraseña (mínimo 8 caracteres)' : 'Contraseña'}
+                  placeholder={
+                    modoRegistro
+                      ? "Contraseña (mínimo 8 caracteres)"
+                      : "Contraseña"
+                  }
                   placeholderTextColor="#94A3B8"
                   secureTextEntry
                   autoCapitalize="none"
@@ -138,7 +148,9 @@ export default function LoginScreen() {
                 />
               )}
             />
-            {errors.clave && <Text style={styles.textoError}>{errors.clave.message}</Text>}
+            {errors.clave && (
+              <Text style={styles.textoError}>{errors.clave.message}</Text>
+            )}
           </View>
 
           {errorServidor && (
@@ -147,23 +159,30 @@ export default function LoginScreen() {
             </Text>
           )}
 
-          <Pressable onPress={handleSubmit(onSubmit)} disabled={isSubmitting} style={[styles.botonPrimario, isSubmitting && { opacity: 0.6 }]}>
+          <Pressable
+            onPress={handleSubmit(onSubmit)}
+            disabled={isSubmitting}
+            style={[styles.botonPrimario, isSubmitting && { opacity: 0.6 }]}
+          >
             {isSubmitting ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text style={styles.textoBotonPrimario}>
-                {modoRegistro ? 'Crear cuenta' : 'Iniciar sesión'}
+                {modoRegistro ? "Crear cuenta" : "Iniciar sesión"}
               </Text>
             )}
           </Pressable>
 
           <Pressable onPress={cambiarModo} style={styles.botonSecundario}>
             <Text style={styles.textoBotonSecundario}>
-              {modoRegistro ? 'Ya tengo una cuenta' : 'Crear una cuenta nueva'}
+              {modoRegistro ? "Ya tengo una cuenta" : "Crear una cuenta nueva"}
             </Text>
           </Pressable>
 
-          <Pressable onPress={entrarComoInvitado} style={styles.botonSecundario}>
+          <Pressable
+            onPress={entrarComoInvitado}
+            style={styles.botonSecundario}
+          >
             <Text style={styles.textoBotonSecundario}>Explorar sin cuenta</Text>
           </Pressable>
         </View>
@@ -171,74 +190,3 @@ export default function LoginScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  pantallaSegura: {
-    flex: 1,
-    backgroundColor: '#FFFFFF'
-  },
-  tecladoContenedor: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24
-  },
-  tarjeta: {
-    width: '100%',
-    maxWidth: 420,
-    alignSelf: 'center'
-  },
-  titulo: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0B3A5D',
-    textAlign: 'center',
-    marginBottom: 4
-  },
-  subtitulo: {
-    fontSize: 14,
-    color: '#64748B',
-    textAlign: 'center',
-    marginBottom: 28
-  },
-  campo: {
-    marginBottom: 16
-  },
-  input: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: '#0F172A'
-  },
-  textoError: {
-    color: '#DC2626',
-    fontSize: 12,
-    marginTop: 4,
-    marginLeft: 2
-  },
-  botonPrimario: {
-    backgroundColor: '#0B3A5D',
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 12
-  },
-  textoBotonPrimario: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600'
-  },
-  botonSecundario: {
-    paddingVertical: 10,
-    alignItems: 'center'
-  },
-  textoBotonSecundario: {
-    color: '#0B3A5D',
-    fontSize: 14,
-    fontWeight: '600'
-  },
-});
