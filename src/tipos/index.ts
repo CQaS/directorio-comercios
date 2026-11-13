@@ -53,3 +53,18 @@ export interface Promocion {
   usos: number;
   activa: boolean;
 }
+
+export type Rol = "vecino" | "comercio"
+
+export interface Usuario {
+  id: string;
+  nombre: string;
+  email: string;
+  rol: Rol;
+  comercioId: string | null;
+  favoritos: string[];
+  rubrosDeInteres: string[];
+  avisosActivos: boolean;
+}
+
+export type UsuarioSesion = Pick<Usuario, "id" | "nombre" | "email" | "rol" | "comercioId">;

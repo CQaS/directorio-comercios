@@ -27,7 +27,14 @@
       "expo-router",
       "expo-status-bar",
       "expo-font",
-      "expo-notifications"
-    ]
+      "expo-notifications",
+      "expo-secure-store",
+      "expo-splash-screen",
+      "expo-sqlite",
+      [
+      "expo-local-authentication", {
+      "faceIDPermission": "Usamos Face ID para que vuelvas a entrar sin escribir la clave."
+  }]
+      ]
   }
 }

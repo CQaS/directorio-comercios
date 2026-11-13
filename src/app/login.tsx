@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,67 +7,69 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useState } from 'react';
+import { useSesion } from "../contexto/sesion";
 
-const esquemaLogin = z.object({
-  nombre: z.string().min(1, 'El nombre es obligatorio'),
-  email: z.string().min(1, 'El email es obligatorio').email('Email inválido'),
-  clave: z.string().min(8, 'Debe tener al menos 8 caracteres'),
-});
+const esquemaIngreso = z.object({
+    email: z.string().min(1, "El email es obligatorio").email("Email inválido"),
+    clave: z.string().min(1, "La contraseña es obligatoria"),
+})
 
-type FormularioDatos = z.infer<typeof esquemaLogin>;
+const esquemaRegistro = z.object({
+    nombre: z.string().trim().min(1, "El nombre es obligatorio"),
+    email: z.string().min(1, "El email es obligatorio").email("Email inválido"),
+    clave: z.string().min(8, "Debe tener al menos 8 caracteres").max(100, 'Máximo 100 caracteres'),
+})
+
+type FormularioDatos = z.infer<typeof esquemaRegistro>;
 
 export default function LoginScreen() {
-  const router = useRouter();
-  const [modoRegistro, setModoRegistro] = useState(false);
+  const { ingresar, registrar, entrarComoInvitado } = useSesion()
+  const [modoRegistro, setModoRegistro] = useState(false)
+  const [errorServidor, setErrorServidor] = useState<string | null>(null)
 
-  const {
-    control,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<FormularioDatos>({
-    resolver: zodResolver(esquemaLogin),
-    defaultValues: { nombre: '', email: '', clave: '' },
-  });
+    const {
+      control,
+      handleSubmit,
+      reset,
+      formState: { errors, isSubmitting },
+    } = useForm<FormularioDatos>({
+      resolver: zodResolver(
+        modoRegistro ? esquemaRegistro : esquemaIngreso,
+      ) as unknown as Resolver<FormularioDatos>,
+      defaultValues: { nombre: '', email: '', clave: '' },
+    })
+
+  const cambiarModo = () => {
+    setModoRegistro((anterior) => !anterior);
+    setErrorServidor(null);
+    reset();
+  }
 
   const onSubmit = async (datos: FormularioDatos) => {
+    setErrorServidor(null)
+    
     try {
-      const respuesta = await fetch(
-        `http://192.168.1.183:3000/auth/${modoRegistro ? 'registro' : 'ingreso'}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...(modoRegistro ? { nombre: datos.nombre } : {}),
-            email: datos.email,
-            contrasena: datos.clave,
-          }),
-        },
-      );
-
-      const resultado = await respuesta.json();
-
-      if (!respuesta.ok) {
-        alert(`Error ${respuesta.status}: ${resultado.mensaje || resultado.message || JSON.stringify(resultado)}`);
-        return;
+      if (modoRegistro) {
+        await registrar(datos.nombre.trim(), datos.email.trim(), datos.clave);
+      } else {
+        await ingresar(datos.email.trim(), datos.clave);
       }
-
-      await AsyncStorage.setItem('token', resultado.datos.token);
-      alert(modoRegistro ? '¡Cuenta creada correctamente!' : '¡Bienvenida!');
-      router.replace('/(tabs)');
+      
     } catch (error) {
-      alert('No se pudo conectar con el servidor.');
+      setErrorServidor(
+        error instanceof Error ? error.message : 'Algo salió mal. Probá de nuevo.',
+      );
     }
-  };
+      
+  }
 
-  const entrarInvitado = () => router.replace('/(tabs)');
 
   return (
     <SafeAreaView style={styles.pantallaSegura}>
@@ -125,7 +127,7 @@ export default function LoginScreen() {
               name="clave"
               render={({ field: { onChange, onBlur, value } }) => (
                 <TextInput
-                  placeholder="Contraseña (mínimo 8 caracteres)"
+                  placeholder={modoRegistro ? 'Contraseña (mínimo 8 caracteres)' : 'Contraseña'}
                   placeholderTextColor="#94A3B8"
                   secureTextEntry
                   autoCapitalize="none"
@@ -139,19 +141,29 @@ export default function LoginScreen() {
             {errors.clave && <Text style={styles.textoError}>{errors.clave.message}</Text>}
           </View>
 
-          <Pressable onPress={handleSubmit(onSubmit)} style={styles.botonPrimario}>
-            <Text style={styles.textoBotonPrimario}>
-              {modoRegistro ? 'Crear cuenta' : 'Iniciar sesión'}
+          {errorServidor && (
+            <Text style={styles.textoError} role="alert">
+              {errorServidor}
             </Text>
+          )}
+
+          <Pressable onPress={handleSubmit(onSubmit)} disabled={isSubmitting} style={[styles.botonPrimario, isSubmitting && { opacity: 0.6 }]}>
+            {isSubmitting ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.textoBotonPrimario}>
+                {modoRegistro ? 'Crear cuenta' : 'Iniciar sesión'}
+              </Text>
+            )}
           </Pressable>
 
-          <Pressable onPress={() => setModoRegistro(!modoRegistro)} style={styles.botonSecundario}>
+          <Pressable onPress={cambiarModo} style={styles.botonSecundario}>
             <Text style={styles.textoBotonSecundario}>
               {modoRegistro ? 'Ya tengo una cuenta' : 'Crear una cuenta nueva'}
             </Text>
           </Pressable>
 
-          <Pressable onPress={entrarInvitado} style={styles.botonSecundario}>
+          <Pressable onPress={entrarComoInvitado} style={styles.botonSecundario}>
             <Text style={styles.textoBotonSecundario}>Explorar sin cuenta</Text>
           </Pressable>
         </View>
