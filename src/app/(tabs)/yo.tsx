@@ -3,7 +3,7 @@ import { View, Text, Pressable, Switch, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
-import { loginStyles as styles } from "../../styles/login.style";
+import { YoStyles as styles } from "../../styles/yo.styles";
 import { obtenerFavoritos, quitarFavorito } from "../../service/favoritos";
 import {
   obtenerPreferencias,

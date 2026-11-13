@@ -92,15 +92,17 @@ export const YoStyles = StyleSheet.create({
     backgroundColor: "#F1F5F9",
     marginLeft: 50,
   },
-  buttonSwitch: {
-    backgroundColor: "#0B3A5D",
+  buttonSalir: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1.5,
+    borderColor: "#991B1B",
     padding: 14,
     borderRadius: 8,
     alignItems: "center",
     marginTop: 12,
   },
-  buttonSwitchText: {
-    color: "#FFFFFF",
+  buttonSalirText: {
+    color: "#991B1B",
     fontWeight: "bold",
     fontSize: 15,
   },
