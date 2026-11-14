@@ -35,6 +35,9 @@ import {
   esFavorito as consultarFavorito,
 } from "../../service/favoritos";
 import { exito } from "../../service/haptics";
+import type { Comercio } from "../../tipos";
+import { buscarComercios } from "../../service/comercios";
+import { guardarMediosComercio } from "../../service/archivosOffline";
 import { buscarComercioPorId } from "../../service/comercios";
 
 export default function DetalleComercioScreen() {
@@ -103,7 +106,36 @@ export default function DetalleComercioScreen() {
     }
   };
 
-  const [comercio, setComercio] = useState<any>({ imagenes: [] });
+  const [comercio, setComercio] = useState<Comercio | null>(null);
+
+useEffect(() => {
+  if (!id) return;
+
+  let activo = true;
+
+  async function cargarComercio() {
+    try {
+      const comercios = await buscarComercios();
+      const encontrado = comercios.find((item) => item.id === id);
+
+      if (activo && encontrado) {
+        const comercioConMedios = await guardarMediosComercio(encontrado);
+        if (activo) {
+          setComercio(comercioConMedios);
+        }
+      }
+    } catch (error) {
+      console.error("No se pudo cargar el comercio:", error);
+    }
+  }
+
+  cargarComercio();
+
+  return () => {
+    activo = false;
+  };
+}, [id]);
+
 
   const [favorito, setFavorito] = useState(false);
   const [actualizandoFavorito, setActualizandoFavorito] = useState(false);
@@ -357,6 +389,7 @@ export default function DetalleComercioScreen() {
       <ScrollView>
         <Button title="Volver" />
         <View style={styles.tarjetaFicha}>
+          
           <View style={styles.encabezadoComercio}>
             <Text style={styles.tituloComercio} numberOfLines={2}>
               {comercio?.nombre ?? "Ficha del Comercio"}
@@ -365,11 +398,36 @@ export default function DetalleComercioScreen() {
               <Text style={styles.textoBadgeId}>#{id}</Text>
             </View>
           </View>
+          
+          {comercio ? (
+            <>
+              <Text style={styles.descripcionComercio}>
+                {comercio.descripcion}
+              </Text>
 
-          <Text style={styles.descripcionComercio}>
-            {comercio?.descripcion ??
-              "Acá se visualizan los horarios detallados, promociones vigentes y ubicación del comercio en Concepción del Uruguay."}
-          </Text>
+              <Text style={styles.descripcion}>
+                Dirección: {comercio.direccion}
+              </Text>
+
+              {comercio.imagenes?.map((imagen, indice) => (
+                <Image
+                  key={`${imagen}-${indice}`}
+                  source={{ uri: imagen }}
+                  style={{
+                    width: "100%",
+                    height: 200,
+                    borderRadius: 10,
+                    marginVertical: 8,
+                  }}
+                  resizeMode="cover"
+                />
+              ))}
+            </>
+          ) : (
+            <Text style={styles.descripcion}>
+              Cargando información del comercio...
+            </Text>
+          )}
 
           <View style={styles.divisor} />
 

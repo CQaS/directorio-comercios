@@ -28,21 +28,16 @@ export function SesionProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
     (async () => {
-        const token = await leerToken();
-        const guardado = await leerUsuario();
-        if (!token || !guardado) return setEstado("anonimo");
-        setUsuario(guardado);
-        setEstado((await biometriaActivada()) ? "bloqueada" : "autenticado");
-
-        obtenerPerfil(token).catch(async (e) => {
-        if (e instanceof ErrorApi && e.estado === 401) {
-            await borrarSesion();
-            setUsuario(null);
-            setEstado("anonimo");
-        }
-        })
-    })()
-    }, [])
+    try {
+    await borrarSesion();
+    } catch (error) {
+    console.error("Error al limpiar la sesión:", error);
+    } finally {
+    setUsuario(null);
+    setEstado("anonimo");
+    }
+    })();
+}, []);
 
     const abrir = async (datos: { token: string; usuario?: UsuarioSesion }) => {
         const u = datos.usuario ?? (await obtenerPerfil(datos.token));

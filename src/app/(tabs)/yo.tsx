@@ -13,8 +13,9 @@ import { reprogramarRecordatoriosPendientes } from "../../service/avisos";
 import { useSesion } from "../../contexto/sesion";
 import { hayBiometria, pedirBiometria } from "../../service/biometria";
 import { biometriaActivada, guardarBiometria } from "../../service/sesion";
+import { API_URL } from "../../service/configuracionApi";
 
-const urlBase = process.env.EXPO_PUBLIC_API_URL;
+const urlBase = API_URL;
 
 export default function YoScreen() {
   const [avisosActivos, setAvisosActivos] = useState(true);
