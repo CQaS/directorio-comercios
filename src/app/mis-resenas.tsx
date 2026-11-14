@@ -1,17 +1,20 @@
 import { useState, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { View, Text, ScrollView, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { misResenasStyles as styles } from "../styles/misResenas.styles";
 import { Resena } from "./comercio/[id]";
 import Button from "../shared/ui/button";
 import { obtenerMisResenasDeLaApi } from "../service/resenas";
+import MensajeError from "../components/MensajeError";
 
 export default function MisResenasScreen() {
-  const [resenas, setResenas] = useState<Resena[]>([]);
-  useFocusEffect(
-    useCallback(() => {
-      let activo = true;
+    const [resenas, setResenas] = useState<Resena[]>([]);
+    const [error, setError] = useState("");
+    
+    useFocusEffect(
+        useCallback(() => {
+    let activo = true;
 
       async function cargarMisResenas() {
         try {
@@ -21,10 +24,12 @@ export default function MisResenasScreen() {
             console.log("Mis reseñas:", resultado);
             setResenas(resultado);
           }
-        } catch (error) {
-          console.error("Error al cargar mis reseñas:", error);
-        }
-      }
+        
+    } catch (error) {
+        console.error("Error al cargar mis reseñas:", error);
+        setError("No se pudieron cargar tus reseñas.");
+    }
+    }
 
       cargarMisResenas();
 
@@ -37,8 +42,9 @@ export default function MisResenasScreen() {
   console.log("Cantidad de mis reseñas:", resenas.length);
   return (
     <SafeAreaView style={styles.container}>
-      <Button title="Volver" />
-      <ScrollView contentContainerStyle={styles.contenido}>
+        <MensajeError mensaje={error} />
+            <Button title="Volver" />
+        <ScrollView contentContainerStyle={styles.contenido}>
         <Text style={styles.titulo}>Mis reseñas</Text>
 
         {resenas.length === 0 ? (

@@ -33,6 +33,7 @@ import {
   quitarFavorito,
   esFavorito as consultarFavorito,
 } from "../../service/favoritos";
+import { exito } from "../../service/haptics";
 
 export default function DetalleComercioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -88,11 +89,21 @@ export default function DetalleComercioScreen() {
         datos.codigo,
       );
 
+      if (registrado) {
+
       setResultadoQR(
-        registrado
-          ? "Canje registrado correctamente!"
-          : "Este código ya fue utilizado",
+        "Canje registrado correctamente!"
       );
+
+      await exito();
+
+      } else {
+
+        setResultadoQR(
+          "Este código ya fue utilizado"
+        );
+
+      }
     } catch {
       setResultadoQR("El QR no tiene un formato válido");
     }
@@ -212,6 +223,7 @@ export default function DetalleComercioScreen() {
         );
 
         guardarResena(resenaModificada);
+        await exito();
 
         setResenas((anteriores) =>
           anteriores.map((item) =>
@@ -228,6 +240,7 @@ export default function DetalleComercioScreen() {
         );
 
         guardarResena(nuevaResena);
+        await exito();
         setResenas((anteriores) => [nuevaResena, ...anteriores]);
       }
 
@@ -240,14 +253,15 @@ export default function DetalleComercioScreen() {
           ? error.message
           : "No se pudo guardar la reseña.",
       );
-    }
-  }
+
+    }}
 
   async function eliminarResena(resenaId: string) {
     try {
       await eliminarResenaDeLaApi(resenaId);
 
-      eliminarResenaGuardada(resenaId);
+    eliminarResenaGuardada(resenaId);
+    await exito();
 
       setResenas((anteriores) =>
         anteriores.filter((item) => item.id !== resenaId),
@@ -273,8 +287,9 @@ export default function DetalleComercioScreen() {
   }
 
   async function reportarResena(resenaId: string) {
-    try {
-      await reportarResenaEnLaApi(resenaId);
+  try {
+    await reportarResenaEnLaApi(resenaId);
+    await exito();
 
       setResenas((anteriores) =>
         anteriores.map((item) =>
@@ -303,16 +318,17 @@ export default function DetalleComercioScreen() {
         ),
       );
 
-      setRespuestaNueva("");
-    } catch (error) {
-      console.error("Error al responder la reseña:", error);
-      alert(
-        error instanceof Error
-          ? error.message
-          : "No se pudo responder la reseña.",
-      );
-    }
-  }
+    setRespuestaNueva("");
+    await exito();
+
+  } catch (error) {
+    console.error("Error al responder la reseña:", error);
+    alert(
+      error instanceof Error
+        ? error.message
+        : "No se pudo responder la reseña.",
+    );
+  }}
   async function cambiarFavorito() {
     if (!id || actualizandoFavorito) return;
 
@@ -321,9 +337,11 @@ export default function DetalleComercioScreen() {
     try {
       if (favorito) {
         await quitarFavorito(String(id));
+        await exito();
         setFavorito(false);
       } else {
         await agregarFavorito(String(id));
+        await exito();
         setFavorito(true);
       }
     } catch (error) {

@@ -5,6 +5,8 @@ import { router, useFocusEffect } from "expo-router";
 import { favoritosStyles as styles } from "../styles/favoritos.styles";
 
 import { obtenerFavoritos, quitarFavorito } from "../service/favoritos";
+
+import MensajeError from "../components/MensajeError";
 import { buscarComercios } from "../service/comercios";
 import { Comercio } from "../tipos";
 import { PantallaCarga } from "../components/PantallaCarga";
@@ -13,6 +15,8 @@ export default function FavoritosScreen() {
   const [favoritos, setFavoritos] = useState<string[]>([]);
   const [comercios, setComercios] = useState<Comercio[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
+
 
   const cargarFavoritos = async () => {
     const ids = await obtenerFavoritos();
@@ -31,9 +35,12 @@ export default function FavoritosScreen() {
         const listaComercios = await buscarComercios();
         setComercios(listaComercios);
       } catch (error) {
-        console.error("Error al cargar comercios en favoritos:", error);
+
+        console.error("Error al cargar comercios:", error);
+        setError("No se pudieron cargar los favoritos.");
       } finally {
         setCargando(false);
+
       }
     }
 
@@ -55,6 +62,7 @@ export default function FavoritosScreen() {
 
   return (
     <SafeAreaView style={styles.contenedor}>
+      <MensajeError mensaje={error} />
       <View style={styles.encabezado}>
         <Pressable onPress={() => router.back()}>
           <Text style={styles.volver}>Volver</Text>

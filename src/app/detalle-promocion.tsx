@@ -18,6 +18,7 @@ import {
   quitarPromocion,
   esPromocionGuardada,
 } from "../service/avisos";
+import { exito } from "../service/haptics";
 
 export default function DetallePromocion() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -65,9 +66,11 @@ export default function DetallePromocion() {
     try {
       if (guardada) {
         await quitarPromocion(promocion.id);
+        await exito();
         setGuardada(false);
       } else {
         await guardarPromocion(promocion);
+        await exito();
         setGuardada(true);
       }
     } catch (error) {

@@ -9,9 +9,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+
+import MensajeError from "../../components/MensajeError";
 import { tabsIndexStyles as styles } from "../../styles/tabs-Index.styles";
 import { buscarComerciosConEstado } from "../../service/comercios";
 import { Comercio } from "../../tipos";
+
 
 const RUBROS = [
   { id: "Todos", nombre: "Todos" },
@@ -56,9 +59,15 @@ export default function DirectorioScreen() {
   const [busqueda, setBusqueda] = useState("");
   const [rubroSeleccionado, setRubroSeleccionado] = useState("Todos");
 
+
   const [comercios, setComercios] = useState<Comercio[]>([]);
   const [desdeCache, setDesdeCache] = useState(false);
+
+  const [error, setError] = useState("");
+
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
+
+
 
   async function cargarComercios() {
     setErrorCarga(null);
@@ -73,6 +82,9 @@ export default function DirectorioScreen() {
           ? error.message
           : "No se pudieron cargar los comercios.",
       );
+
+      setError(
+      "No se pudieron cargar los comercios.");
     }
   }
 
@@ -117,6 +129,7 @@ export default function DirectorioScreen() {
 
       {/* Chips horizontales condicionales */}
       <View style={styles.contenedorChips}>
+      <MensajeError mensaje={error} />
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
