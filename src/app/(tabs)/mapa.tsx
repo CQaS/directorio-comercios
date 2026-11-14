@@ -13,12 +13,15 @@ import { useEffect, useState } from "react";
 import { WebView } from "react-native-webview";
 import * as Location from "expo-location";
 import { Comercio } from "../../tipos";
+import MensajeError from "../../components/MensajeError";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function PantallaMapa() {
   const [ubicacionUsuario, setUbicacionUsuario] =
     useState<Location.LocationObjectCoords | null>(null);
   const [cargando, setCargando] = useState<boolean>(true);
   const [comercios, setComercios] = useState<Comercio[]>([]);
+  const [error, setError] = useState("");
   const [rubroSeleccionado, setRubroSeleccionado] = useState<string | null>(
     null,
   );
@@ -42,6 +45,7 @@ export default function PantallaMapa() {
         setComercios(datos.datos);
       } catch (error) {
         console.error("Error al cargar los comercios desde la API:", error);
+        setError("No se pudo cargar el mapa.");
       } finally {
         setCargando(false);
       }
@@ -177,7 +181,9 @@ export default function PantallaMapa() {
 `;
 
   return (
-    <View style={styles.contenedor}>
+    <SafeAreaView style={styles.contenedor}>
+    
+      <MensajeError mensaje={error} />
       <View style={styles.barraFiltrosContainer}>
         <ScrollView
           horizontal
@@ -304,8 +310,10 @@ export default function PantallaMapa() {
           )}
         />
       </View>
-    </View>
+    
+    </SafeAreaView>
   );
+  
 }
 
 const styles = StyleSheet.create({
@@ -382,11 +390,12 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   barraFiltrosContainer: {
-    position: "absolute",
+    
     top: 10,
     zIndex: 10,
     width: "100%",
     paddingHorizontal: 10,
+    paddingBottom: 15,
   },
   scrollFiltros: {
     paddingVertical: 5,

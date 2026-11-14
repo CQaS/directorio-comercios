@@ -5,9 +5,11 @@ import { useFocusEffect } from "expo-router";
 import { Resena } from "./comercio/[id]";
 import Button from "../shared/ui/button";
 import { obtenerMisResenasDeLaApi } from "../service/resenas";
+import MensajeError from "../components/MensajeError";
 
 export default function MisResenasScreen() {
     const [resenas, setResenas] = useState<Resena[]>([]);
+    const [error, setError] = useState("");
     useFocusEffect(
         useCallback(() => {
     let activo = true;
@@ -22,6 +24,7 @@ export default function MisResenasScreen() {
         }
     } catch (error) {
         console.error("Error al cargar mis reseñas:", error);
+        setError("No se pudieron cargar tus reseñas.");
     }
     }
 
@@ -36,6 +39,7 @@ export default function MisResenasScreen() {
 console.log("Cantidad de mis reseñas:", resenas.length);
 return (
     <SafeAreaView style={styles.container}>
+        <MensajeError mensaje={error} />
             <Button title="Volver" />
         <ScrollView contentContainerStyle={styles.contenido}>
         <Text style={styles.titulo}>Mis reseñas</Text>

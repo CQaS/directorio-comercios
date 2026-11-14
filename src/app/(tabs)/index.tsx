@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { buscarComercios } from "../../service/comercios";
+import MensajeError from "../../components/MensajeError";
 
 const RUBROS = [
   { id: "Todos", nombre: "Todos" },
@@ -56,6 +57,7 @@ export default function DirectorioScreen() {
   const [rubroSeleccionado, setRubroSeleccionado] = useState("Todos");
 
   const [comercios, setComercios] = useState<any[]>([]);
+  const [error, setError] = useState("");
   useEffect(() => {
     async function cargarComercios() {
       try {
@@ -63,6 +65,8 @@ export default function DirectorioScreen() {
         setComercios(datos);
       } catch (error) {
         console.error("Error al cargar comercios:", error);
+        setError(
+          "No se pudieron cargar los comercios.");
       }
     }
 
@@ -100,6 +104,7 @@ export default function DirectorioScreen() {
 
       {/* Chips horizontales condicionales */}
       <View style={styles.contenedorChips}>
+      <MensajeError mensaje={error} />
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}

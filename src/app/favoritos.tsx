@@ -6,10 +6,12 @@ import { useCallback } from "react";
 const urlBase = process.env.EXPO_PUBLIC_API_URL;
 
 import { obtenerFavoritos, quitarFavorito } from "../service/favoritos";
+import MensajeError from "../components/MensajeError";
 
 export default function FavoritosScreen() {
   const [favoritos, setFavoritos] = useState<string[]>([]);
   const [comercios, setComercios] = useState<any[]>([]);
+  const [error, setError] = useState("");
 
   const cargarFavoritos = async () => {
     const ids = await obtenerFavoritos();
@@ -36,6 +38,7 @@ export default function FavoritosScreen() {
         setComercios(resultado.datos);
       } catch (error) {
         console.error("Error al cargar comercios:", error);
+        setError("No se pudieron cargar los favoritos.");
       }
     }
 
@@ -63,6 +66,7 @@ export default function FavoritosScreen() {
 
   return (
     <SafeAreaView style={styles.contenedor}>
+      <MensajeError mensaje={error} />
       <View style={styles.encabezado}>
         <Pressable onPress={() => router.back()}>
           <Text style={styles.volver}>Volver</Text>
