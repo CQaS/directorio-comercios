@@ -2,6 +2,11 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 
 function obtenerUrlApi(): string {
+  const urlConfigurada = process.env.EXPO_PUBLIC_API_URL?.trim();
+  if (urlConfigurada) {
+    return urlConfigurada.replace(/\/+$/, "");
+  }
+
   if (Platform.OS === "web") {
     return "http://localhost:3000";
   }

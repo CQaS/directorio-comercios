@@ -74,11 +74,12 @@ export const mapaStyles = StyleSheet.create({
     fontWeight: "bold",
   },
   barraFiltrosContainer: {
-    position: "absolute",
+    
     top: 10,
     zIndex: 10,
     width: "100%",
     paddingHorizontal: 10,
+    paddingBottom: 15,
   },
   scrollFiltros: {
     paddingVertical: 5,

@@ -1,6 +1,7 @@
 import { Resena } from "../app/comercio/[id]";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { peticionApi } from "./configuracionApi";
+import { leerToken, leerUsuario  } from "./sesion";
+import { buscarComercios } from "./comercios";
 
 //const API_URL = "http://192.168.1.183:3000";
 
@@ -33,19 +34,27 @@ export function eliminarResenaGuardada(resenaId: string): void {
 }
 
 export async function obtenerMisResenasDeLaApi(): Promise<Resena[]> {
-  const token = await AsyncStorage.getItem("token");
+  const token = await leerToken();
 
   if (!token) {
     throw new Error("NO_AUTORIZADO: No se encontró el token de sesión.");
   }
 
-  const resenas = await peticionApi<Resena[]>(`/yo/resenas`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  const usuario = await leerUsuario();
 
-  return resenas;
+    if (!usuario) {
+        throw new Error("No se encontró el usuario de sesión.");
+    }
+
+    const comercios = await buscarComercios();
+
+    const resenasPorComercio = await Promise.all(
+        comercios.map((comercio) => obtenerResenasDeComercio(comercio.id)),
+    );
+
+    return resenasPorComercio
+        .flat()
+        .filter((resena) => resena.usuarioId === usuario.id);
 }
 
 export async function obtenerResenasDeComercio(
@@ -71,7 +80,7 @@ export async function publicarResenaEnLaApi(
   estrellas: number,
   comentario: string,
 ): Promise<Resena> {
-  const token = await AsyncStorage.getItem("token");
+  const token = await leerToken();
 
   if (!token) {
     throw new Error("No se encontró el token de sesión.");
@@ -99,7 +108,7 @@ export async function editarResenaEnLaApi(
   estrellas: number,
   comentario: string,
 ): Promise<Resena> {
-  const token = await AsyncStorage.getItem("token");
+  const token = await leerToken();
 
   if (!token) {
     throw new Error("No se encontró el token de sesión.");
@@ -121,7 +130,7 @@ export async function editarResenaEnLaApi(
 }
 
 export async function eliminarResenaDeLaApi(resenaId: string): Promise<void> {
-  const token = await AsyncStorage.getItem("token");
+  const token = await leerToken();
 
   if (!token) {
     throw new Error("No se encontró el token de sesión.");
@@ -136,7 +145,7 @@ export async function eliminarResenaDeLaApi(resenaId: string): Promise<void> {
 }
 
 export async function reportarResenaEnLaApi(resenaId: string): Promise<void> {
-  const token = await AsyncStorage.getItem("token");
+  const token = await leerToken();
 
   if (!token) {
     throw new Error("No se encontró el token de sesión.");
@@ -154,7 +163,7 @@ export async function responderResenaEnLaApi(
   resenaId: string,
   respuestaTexto: string,
 ): Promise<Resena> {
-  const token = await AsyncStorage.getItem("token");
+  const token = await leerToken();
 
   if (!token) {
     throw new Error("No se encontró el token de sesión.");

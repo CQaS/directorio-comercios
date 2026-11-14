@@ -13,6 +13,8 @@ import { WebView } from "react-native-webview";
 import * as Location from "expo-location";
 import { mapaStyles as styles } from "../../styles/mapa.styles";
 import { Comercio } from "../../tipos";
+import MensajeError from "../../components/MensajeError";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { buscarComercios } from "../../service/comercios";
 import { PantallaCarga } from "../../components/PantallaCarga";
 
@@ -21,6 +23,7 @@ export default function PantallaMapa() {
     useState<Location.LocationObjectCoords | null>(null);
   const [cargando, setCargando] = useState<boolean>(true);
   const [comercios, setComercios] = useState<Comercio[]>([]);
+  const [error, setError] = useState("");
   const [rubroSeleccionado, setRubroSeleccionado] = useState<string | null>(
     null,
   );
@@ -39,7 +42,8 @@ export default function PantallaMapa() {
         const listaComercios = await buscarComercios();
         setComercios(listaComercios);
       } catch (error) {
-        console.error("Error al cargar los comercios en el mapa:", error);
+        console.error("Error al cargar los comercios desde la API:", error);
+        setError("No se pudo cargar el mapa.");
       } finally {
         setCargando(false);
       }
@@ -170,7 +174,9 @@ export default function PantallaMapa() {
 `;
 
   return (
-    <View style={styles.contenedor}>
+    <SafeAreaView style={styles.contenedor}>
+    
+      <MensajeError mensaje={error} />
       <View style={styles.barraFiltrosContainer}>
         <ScrollView
           horizontal
@@ -297,6 +303,8 @@ export default function PantallaMapa() {
           )}
         />
       </View>
-    </View>
+    
+    </SafeAreaView>
   );
+  
 }
