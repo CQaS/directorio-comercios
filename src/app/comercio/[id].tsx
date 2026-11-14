@@ -8,6 +8,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { porIdstyles as styles } from "../../styles/porId.styles";
+import { ReproductorVideo } from "../../components/ReproductorVideo";
 import Button from "../../shared/ui/button";
 import { Promocion } from "../../tipos";
 import { buscarPromocionesPorComercio } from "../../service/promociones";
@@ -37,6 +38,7 @@ import { exito } from "../../service/haptics";
 import type { Comercio } from "../../tipos";
 import { buscarComercios } from "../../service/comercios";
 import { guardarMediosComercio } from "../../service/archivosOffline";
+import { buscarComercioPorId } from "../../service/comercios";
 
 export default function DetalleComercioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -93,19 +95,11 @@ export default function DetalleComercioScreen() {
       );
 
       if (registrado) {
+        setResultadoQR("Canje registrado correctamente!");
 
-      setResultadoQR(
-        "Canje registrado correctamente!"
-      );
-
-      await exito();
-
+        await exito();
       } else {
-
-        setResultadoQR(
-          "Este código ya fue utilizado"
-        );
-
+        setResultadoQR("Este código ya fue utilizado");
       }
     } catch {
       setResultadoQR("El QR no tiene un formato válido");
@@ -167,19 +161,26 @@ useEffect(() => {
 
     let activo = true;
 
-    async function cargarResenas() {
+    async function cargarDatosPantalla() {
       try {
-        const resenasObtenidas = await obtenerResenasDeComercio(String(id));
+        const [comercioObtenido, resenasObtenidas] = await Promise.all([
+          buscarComercioPorId(String(id)),
+          obtenerResenasDeComercio(String(id)),
+        ]);
 
         if (activo) {
+          setComercio(comercioObtenido);
           setResenas(resenasObtenidas);
         }
       } catch (error) {
-        console.error("Error al cargar las reseñas:", error);
+        console.error(
+          "Error al cargar los datos del comercio o las reseñas:",
+          error,
+        );
       }
     }
 
-    cargarResenas();
+    cargarDatosPantalla();
 
     return () => {
       activo = false;
@@ -285,15 +286,15 @@ useEffect(() => {
           ? error.message
           : "No se pudo guardar la reseña.",
       );
-
-    }}
+    }
+  }
 
   async function eliminarResena(resenaId: string) {
     try {
       await eliminarResenaDeLaApi(resenaId);
 
-    eliminarResenaGuardada(resenaId);
-    await exito();
+      eliminarResenaGuardada(resenaId);
+      await exito();
 
       setResenas((anteriores) =>
         anteriores.filter((item) => item.id !== resenaId),
@@ -319,9 +320,9 @@ useEffect(() => {
   }
 
   async function reportarResena(resenaId: string) {
-  try {
-    await reportarResenaEnLaApi(resenaId);
-    await exito();
+    try {
+      await reportarResenaEnLaApi(resenaId);
+      await exito();
 
       setResenas((anteriores) =>
         anteriores.map((item) =>
@@ -350,17 +351,17 @@ useEffect(() => {
         ),
       );
 
-    setRespuestaNueva("");
-    await exito();
-
-  } catch (error) {
-    console.error("Error al responder la reseña:", error);
-    alert(
-      error instanceof Error
-        ? error.message
-        : "No se pudo responder la reseña.",
-    );
-  }}
+      setRespuestaNueva("");
+      await exito();
+    } catch (error) {
+      console.error("Error al responder la reseña:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "No se pudo responder la reseña.",
+      );
+    }
+  }
   async function cambiarFavorito() {
     if (!id || actualizandoFavorito) return;
 
@@ -386,43 +387,61 @@ useEffect(() => {
   return (
     <SafeAreaView style={styles.contenedor}>
       <ScrollView>
-        {/* Botón Volver reutilizable */}
         <Button title="Volver" />
         <View style={styles.tarjetaFicha}>
-          <Text style={styles.titulo}>Ficha del Comercio</Text>
-          <Text style={styles.subtitulo}>
-  {comercio?.nombre ?? `Comercio #${id}`}
-</Text>
+          
+          <View style={styles.encabezadoComercio}>
+            <Text style={styles.tituloComercio} numberOfLines={2}>
+              {comercio?.nombre ?? "Ficha del Comercio"}
+            </Text>
+            <View style={styles.badgeId}>
+              <Text style={styles.textoBadgeId}>#{id}</Text>
+            </View>
+          </View>
+          
+          {comercio ? (
+            <>
+              <Text style={styles.descripcionComercio}>
+                {comercio.descripcion}
+              </Text>
 
-{comercio ? (
-  <>
-    <Text style={styles.descripcion}>
-      {comercio.descripcion}
-    </Text>
+              <Text style={styles.descripcion}>
+                Dirección: {comercio.direccion}
+              </Text>
 
-    <Text style={styles.descripcion}>
-      Dirección: {comercio.direccion}
-    </Text>
+              {comercio.imagenes?.map((imagen, indice) => (
+                <Image
+                  key={`${imagen}-${indice}`}
+                  source={{ uri: imagen }}
+                  style={{
+                    width: "100%",
+                    height: 200,
+                    borderRadius: 10,
+                    marginVertical: 8,
+                  }}
+                  resizeMode="cover"
+                />
+              ))}
+            </>
+          ) : (
+            <Text style={styles.descripcion}>
+              Cargando información del comercio...
+            </Text>
+          )}
 
-    {comercio.imagenes.map((imagen, indice) => (
-      <Image
-        key={`${imagen}-${indice}`}
-        source={{ uri: imagen }}
-        style={{
-          width: "100%",
-          height: 200,
-          borderRadius: 10,
-          marginVertical: 8,
-        }}
-        resizeMode="cover"
-      />
-    ))}
-  </>
-) : (
-  <Text style={styles.descripcion}>
-    Cargando información del comercio...
-  </Text>
-)}
+          <View style={styles.divisor} />
+
+          {comercio?.videoUrl ? (
+            <View style={styles.contenedorVideo}>
+              <ReproductorVideo urlVideo={comercio.videoUrl} />
+            </View>
+          ) : (
+            <View style={styles.contenedorSinVideo}>
+              <Text style={styles.textoSinVideo}>
+                📹 Sin video de presentación
+              </Text>
+            </View>
+          )}
 
           <Pressable
             style={styles.botonEscanear}

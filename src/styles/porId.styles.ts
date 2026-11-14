@@ -13,11 +13,20 @@ export const porIdstyles = StyleSheet.create({
   },
   tarjetaFicha: {
     marginTop: 24,
-    padding: 16,
-    backgroundColor: "#F8FAFC",
-    borderRadius: 12,
+    padding: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: "#E2E8F0",
+    borderTopWidth: 4,
+    borderTopColor: "#0B3A5D",
+    // Sombra iOS
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    // Sombra Android
+    elevation: 4,
   },
   resena: {
     marginTop: 20,
@@ -127,5 +136,63 @@ export const porIdstyles = StyleSheet.create({
   textoBotonRespuesta: {
     color: "#FFFFFF",
     fontWeight: "bold",
+  },
+  encabezadoComercio: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 10,
+    gap: 12,
+  },
+  tituloComercio: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#0F172A",
+    flex: 1,
+    letterSpacing: -0.3,
+    lineHeight: 28,
+  },
+  badgeId: {
+    backgroundColor: "#E6EEF4",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    marginTop: 2,
+  },
+  textoBadgeId: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#0B3A5D",
+    letterSpacing: 0.3,
+  },
+  descripcionComercio: {
+    fontSize: 15,
+    color: "#475569",
+    lineHeight: 22,
+  },
+  contenedorSinVideo: {
+    width: "100%",
+    height: 72,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "#CBD5E1",
+    borderStyle: "dashed",
+  },
+  textoSinVideo: {
+    color: "#64748B",
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  divisor: {
+    height: 1,
+    backgroundColor: "#E2E8F0",
+    marginVertical: 16,
+  },
+  contenedorVideo: {
+    borderRadius: 12,
+    backgroundColor: "#000000",
   },
 });
