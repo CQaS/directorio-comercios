@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { limpiarFavoritosInvalidos } from "../service/favoritos";
+import { obtenerBaseDatos } from "../service/baseDatos";
 import { PantallaCarga } from "../components/PantallaCarga";
 import { SesionProvider, useSesion } from "../contexto/sesion";
 
@@ -12,6 +13,7 @@ function Navegacion() {
   useEffect(() => {
       async function cargandoDatos() {
         try {
+          await obtenerBaseDatos();
           await limpiarFavoritosInvalidos();
         } catch (error) {
           console.error("Error al cargar los datos:", error);

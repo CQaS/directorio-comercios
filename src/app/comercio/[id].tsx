@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Image, Pressable, TextInput, } from "react-native";
+import { View, Text, Image, Pressable, TextInput } from "react-native";
 import {
   Gesture,
   GestureDetector,
   ScrollView,
 } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
+import { porIdstyles as styles } from "../../styles/porId.styles";
 import Button from "../../shared/ui/button";
 import { Promocion } from "../../tipos";
 import { buscarPromocionesPorComercio } from "../../service/promociones";
@@ -16,7 +17,17 @@ import Animated, {
 } from "react-native-reanimated";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { registrarCanje } from "../../service/canjes";
-import { guardarResena, eliminarResenaGuardada, publicarResenaEnLaApi, editarResenaEnLaApi, eliminarResenaDeLaApi, reportarResenaEnLaApi, obtenerResenasDeComercio, responderResenaEnLaApi, obtenerMisResenasDeLaApi } from "../../service/resenas";
+import {
+  guardarResena,
+  eliminarResenaGuardada,
+  publicarResenaEnLaApi,
+  editarResenaEnLaApi,
+  eliminarResenaDeLaApi,
+  reportarResenaEnLaApi,
+  obtenerResenasDeComercio,
+  responderResenaEnLaApi,
+  obtenerMisResenasDeLaApi,
+} from "../../service/resenas";
 import {
   agregarFavorito,
   quitarFavorito,
@@ -119,7 +130,7 @@ export default function DetalleComercioScreen() {
     }
   }, [id]);
 
-    useEffect(() => {
+  useEffect(() => {
     if (!id) return;
 
     let activo = true;
@@ -143,36 +154,42 @@ export default function DetalleComercioScreen() {
     };
   }, [id]);
   useEffect(() => {
-  let activo = true;
+    let activo = true;
 
-  async function cargarMiResena() {
-    try {
-      const misResenas = await obtenerMisResenasDeLaApi();
+    async function cargarMiResena() {
+      try {
+        const misResenas = await obtenerMisResenasDeLaApi();
 
-      if (!activo) return;
+        if (!activo) return;
 
-      const miResena = misResenas.find(
-        (resena) => resena.comercioId === String(id),
-      );
+        const miResena = misResenas.find(
+          (resena) => resena.comercioId === String(id),
+        );
 
-      if (miResena) {
-        setResenaEditando(miResena.id);
-        setComentarioNuevo(miResena.comentario);
-        setEstrellasSeleccionadas(miResena.estrellas);
+        if (miResena) {
+          setResenaEditando(miResena.id);
+          setComentarioNuevo(miResena.comentario);
+          setEstrellasSeleccionadas(miResena.estrellas);
+        }
+      } catch (error: any) {
+        console.error("Error al buscar mi reseña:", error);
+
+        // Si el error es de autorización sin token, redirigimos al login
+        if (error.message.includes("NO_AUTORIZADO")) {
+          // Redirigimos al usuario al login y evitamos que pueda volver atrás
+          router.replace("/");
+        }
       }
-    } catch (error) {
-      console.error("Error al buscar mi reseña:", error);
     }
-  }
 
-  if (id) {
-    cargarMiResena();
-  }
+    if (id) {
+      cargarMiResena();
+    }
 
-  return () => {
-    activo = false;
-  };
-}, [id]);
+    return () => {
+      activo = false;
+    };
+  }, [id]);
 
   useEffect(() => {
     let activo = true;
@@ -195,69 +212,69 @@ export default function DetalleComercioScreen() {
   }, [id]);
 
   async function publicarResena() {
-  if (comentarioNuevo.trim() === "") return;
+    if (comentarioNuevo.trim() === "") return;
 
-  try {
-    if (resenaEditando !== null) {
-      const resenaModificada = await editarResenaEnLaApi(
-        resenaEditando,
-        estrellasSeleccionadas,
-        comentarioNuevo.trim(),
+    try {
+      if (resenaEditando !== null) {
+        const resenaModificada = await editarResenaEnLaApi(
+          resenaEditando,
+          estrellasSeleccionadas,
+          comentarioNuevo.trim(),
+        );
+
+        guardarResena(resenaModificada);
+        await exito();
+
+        setResenas((anteriores) =>
+          anteriores.map((item) =>
+            item.id === resenaEditando ? resenaModificada : item,
+          ),
+        );
+
+        setResenaEditando(null);
+      } else {
+        const nuevaResena = await publicarResenaEnLaApi(
+          String(id),
+          estrellasSeleccionadas,
+          comentarioNuevo.trim(),
+        );
+
+        guardarResena(nuevaResena);
+        await exito();
+        setResenas((anteriores) => [nuevaResena, ...anteriores]);
+      }
+
+      setComentarioNuevo("");
+      setEstrellasSeleccionadas(5);
+    } catch (error) {
+      console.error("Error al guardar la reseña:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "No se pudo guardar la reseña.",
       );
 
-      guardarResena(resenaModificada);
-      await exito();
-
-      setResenas((anteriores) =>
-        anteriores.map((item) =>
-          item.id === resenaEditando ? resenaModificada : item,
-        ),
-      );
-
-      setResenaEditando(null);
-    } else {
-      const nuevaResena = await publicarResenaEnLaApi(
-        String(id),
-        estrellasSeleccionadas,
-        comentarioNuevo.trim(),
-      );
-
-      guardarResena(nuevaResena);
-      await exito();
-      setResenas((anteriores) => [nuevaResena, ...anteriores]);
-    }
-
-    setComentarioNuevo("");
-    setEstrellasSeleccionadas(5);
-  } catch (error) {
-    console.error("Error al guardar la reseña:", error);
-    alert(
-      error instanceof Error
-        ? error.message
-        : "No se pudo guardar la reseña.",
-    );
-  }
-}
+    }}
 
   async function eliminarResena(resenaId: string) {
-  try {
-    await eliminarResenaDeLaApi(resenaId);
+    try {
+      await eliminarResenaDeLaApi(resenaId);
 
     eliminarResenaGuardada(resenaId);
     await exito();
 
-    setResenas((anteriores) =>
-      anteriores.filter((item) => item.id !== resenaId),
-    );
-  } catch (error) {
-    console.error("Error al eliminar la reseña:", error);
-    alert(
-      error instanceof Error
-        ? error.message
-        : "No se pudo eliminar la reseña.",
-    );
+      setResenas((anteriores) =>
+        anteriores.filter((item) => item.id !== resenaId),
+      );
+    } catch (error) {
+      console.error("Error al eliminar la reseña:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "No se pudo eliminar la reseña.",
+      );
+    }
   }
-}
 
   function editarResena(resenaId: string) {
     const resenaElegida = resenas.find((item) => item.id === resenaId);
@@ -274,34 +291,32 @@ export default function DetalleComercioScreen() {
     await reportarResenaEnLaApi(resenaId);
     await exito();
 
-    setResenas((anteriores) =>
-      anteriores.map((item) =>
-        item.id === resenaId
-          ? { ...item, reportada: true }
-          : item,
-      ),
-    );
-  } catch (error) {
-    console.error("Error al reportar la reseña:", error);
-    alert(
-      error instanceof Error
-        ? error.message
-        : "No se pudo reportar la reseña.",
-    );
+      setResenas((anteriores) =>
+        anteriores.map((item) =>
+          item.id === resenaId ? { ...item, reportada: true } : item,
+        ),
+      );
+    } catch (error) {
+      console.error("Error al reportar la reseña:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "No se pudo reportar la reseña.",
+      );
+    }
   }
-}
   async function responderResena(resenaId: string, respuestaTexto: string) {
-  try {
-    const resenaActualizada = await responderResenaEnLaApi(
-      resenaId,
-      respuestaTexto,
-    );
+    try {
+      const resenaActualizada = await responderResenaEnLaApi(
+        resenaId,
+        respuestaTexto,
+      );
 
-    setResenas((anteriores) =>
-      anteriores.map((item) =>
-        item.id === resenaId ? resenaActualizada : item,
-      ),
-    );
+      setResenas((anteriores) =>
+        anteriores.map((item) =>
+          item.id === resenaId ? resenaActualizada : item,
+        ),
+      );
 
     setRespuestaNueva("");
     await exito();
@@ -313,8 +328,7 @@ export default function DetalleComercioScreen() {
         ? error.message
         : "No se pudo responder la reseña.",
     );
-  }
-}
+  }}
   async function cambiarFavorito() {
     if (!id || actualizandoFavorito) return;
 
@@ -575,133 +589,3 @@ function calcularPromedio(resenas: Resena[]): number {
 
   return total / resenas.length;
 }
-
-const styles = StyleSheet.create({
-  fila: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#ccc",
-  },
-  contenedor: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    padding: 16,
-  },
-  tarjetaFicha: {
-    marginTop: 24,
-    padding: 16,
-    backgroundColor: "#F8FAFC",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  resena: {
-    marginTop: 20,
-    padding: 15,
-  },
-  filaEstrellas: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginVertical: 8,
-  },
-  estrella: {
-    fontSize: 32,
-    color: "#F5B301",
-  },
-  campoComentario: {
-    borderWidth: 1,
-    borderColor: "#CCCCCC",
-    borderRadius: 8,
-    padding: 10,
-    minHeight: 90,
-    textAlignVertical: "top",
-    marginVertical: 8,
-  },
-  botonResena: {
-    backgroundColor: "#333333",
-    padding: 12,
-    borderRadius: 8,
-    alignItems: "center",
-    marginVertical: 10,
-  },
-  textoBotonResena: {
-    color: "#FFFFFF",
-    fontWeight: "bold",
-  },
-  botonEliminar: {
-    marginTop: 8,
-    padding: 8,
-    alignSelf: "flex-start",
-  },
-  textoEliminar: {
-    color: "#C62828",
-    fontWeight: "bold",
-  },
-  botonEditar: {
-    marginTop: 4,
-    padding: 8,
-    alignSelf: "flex-start",
-  },
-  textoEditar: {
-    color: "#1565C0",
-    fontWeight: "bold",
-  },
-  botonReportar: {
-    marginTop: 4,
-    padding: 8,
-    alignSelf: "flex-start",
-  },
-  textoReportar: {
-    color: "#C62828",
-  },
-  titulo: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#0B3A5D",
-  },
-  subtitulo: {
-    fontSize: 14,
-    color: "#64748B",
-    marginTop: 6,
-  },
-  descripcion: {
-    fontSize: 14,
-    color: "#334155",
-    marginTop: 12,
-    lineHeight: 20,
-  },
-  botonEscanear: {
-    backgroundColor: "#0B3A5D",
-    padding: 14,
-    borderRadius: 8,
-    marginTop: 12,
-    alignItems: "center",
-  },
-  textoBoton: {
-    color: "#FFFFFF",
-    fontWeight: "bold",
-    fontSize: 15,
-  },
-  contenedorCamara: {
-    marginTop: 16,
-    gap: 12,
-  },
-  camara: {
-    height: 300,
-    width: "100%",
-    borderRadius: 12,
-    overflow: "hidden",
-  },
-  botonRespuesta: {
-    backgroundColor: "#333333",
-    padding: 10,
-    borderRadius: 8,
-    alignItems: "center",
-    marginVertical: 8,
-  },
-  textoBotonRespuesta: {
-    color: "#FFFFFF",
-    fontWeight: "bold",
-  },
-});

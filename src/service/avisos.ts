@@ -1,6 +1,6 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { obtenerFavoritos } from "./favoritos";
 import { peticionApi } from "./configuracionApi";
+import { obtenerBaseDatos } from "./baseDatos";
 import {
   obtenerPreferencias,
   programarRecordatorio,
@@ -9,11 +9,6 @@ import {
 } from "./notificaciones";
 import { buscarPromociones } from "./promociones";
 import { Promocion } from "../tipos";
-//const urlBase = process.env.EXPO_PUBLIC_API_URL;
-
-const CLAVE_PROMOCIONES_NOTIFICADAS = "@directorio_promociones_notificadas";
-const CLAVE_PROMOCIONES_GUARDADAS = "@directorio_promociones_guardadas";
-const CLAVE_RECORDATORIOS = "@directorio_recordatorios";
 
 export async function obtenerAvisos(): Promise<Promocion[]> {
   const favoritos = await obtenerFavoritos();
@@ -76,19 +71,29 @@ export async function detectarPromocionesNuevas(): Promise<void> {
 
   const promociones = await obtenerAvisos();
 
-  const datosGuardados = await AsyncStorage.getItem(
-    CLAVE_PROMOCIONES_NOTIFICADAS,
+  const db = await obtenerBaseDatos();
+  const inicializacion = await db.getFirstAsync<{ valor: string }>(
+    `SELECT valor FROM preferencias
+      WHERE clave = 'promociones_notificadas_inicializadas'`,
   );
+  const filasNotificadas = await db.getAllAsync<{ promocion_id: string }>(
+    "SELECT promocion_id FROM promociones_notificadas",
+  );
+  const idNotificados = filasNotificadas.map((fila) => fila.promocion_id);
 
-  const idNotificados: string[] = datosGuardados
-    ? JSON.parse(datosGuardados)
-    : [];
-
-  if (datosGuardados === null) {
-    await AsyncStorage.setItem(
-      CLAVE_PROMOCIONES_NOTIFICADAS,
-      JSON.stringify(promociones.map((promo) => promo.id)),
-    );
+  if (!inicializacion) {
+    await db.withTransactionAsync(async () => {
+      for (const promo of promociones) {
+        await db.runAsync(
+          "INSERT OR IGNORE INTO promociones_notificadas (promocion_id) VALUES (?)",
+          promo.id,
+        );
+      }
+      await db.runAsync(
+        `INSERT INTO preferencias (clave, valor)
+          VALUES ('promociones_notificadas_inicializadas', 'si')`,
+      );
+    });
     return;
   }
 
@@ -107,28 +112,38 @@ export async function detectarPromocionesNuevas(): Promise<void> {
   }
 
   if (promocionesNotificadas.length > 0) {
-    const idActualizados = [...idNotificados, ...promocionesNotificadas];
-
-    await AsyncStorage.setItem(
-      CLAVE_PROMOCIONES_NOTIFICADAS,
-      JSON.stringify(idActualizados),
-    );
+    await db.withTransactionAsync(async () => {
+      for (const id of promocionesNotificadas) {
+        await db.runAsync(
+          "INSERT OR IGNORE INTO promociones_notificadas (promocion_id) VALUES (?)",
+          id,
+        );
+      }
+    });
   }
 }
 
 export async function obtenerPromocionesGuardadas(): Promise<Promocion[]> {
-  const datos = await AsyncStorage.getItem(CLAVE_PROMOCIONES_GUARDADAS);
-  return datos ? JSON.parse(datos) : [];
+  const db = await obtenerBaseDatos();
+  const filas = await db.getAllAsync<{ datos_json: string }>(
+    "SELECT datos_json FROM promociones_guardadas ORDER BY vence_en",
+  );
+  return filas.map((fila) => JSON.parse(fila.datos_json) as Promocion);
 }
 
 export async function reprogramarRecordatoriosPendientes(): Promise<void> {
   const promociones = await obtenerPromocionesGuardadas();
 
-  const datos = await AsyncStorage.getItem(CLAVE_RECORDATORIOS);
+  const db = await obtenerBaseDatos();
+  const recordatorios = await db.getAllAsync<{
+    promocion_id: string;
+    notificacion_id: string;
+  }>("SELECT promocion_id, notificacion_id FROM recordatorios");
+  const nuevosRecordatorios: Array<[string, string]> = [];
 
-  const recordatorios = datos ? JSON.parse(datos) : {};
-
-  const nuevosRecordatorios: Record<string, string> = {};
+  for (const recordatorio of recordatorios) {
+    await cancelarRecordatorio(recordatorio.notificacion_id);
+  }
 
   for (const promo of promociones) {
     const fechaVencimiento = new Date(promo.hasta);
@@ -136,10 +151,6 @@ export async function reprogramarRecordatoriosPendientes(): Promise<void> {
 
     fechaRecordatorio.setDate(fechaRecordatorio.getDate() - 1);
     fechaRecordatorio.setHours(10, 0, 0, 0);
-
-    if (recordatorios[promo.id]) {
-      await cancelarRecordatorio(recordatorios[promo.id]);
-    }
 
     if (fechaRecordatorio <= new Date()) {
       continue;
@@ -152,33 +163,47 @@ export async function reprogramarRecordatoriosPendientes(): Promise<void> {
     );
 
     if (idRecordatorio) {
-      nuevosRecordatorios[promo.id] = idRecordatorio;
+      nuevosRecordatorios.push([promo.id, idRecordatorio]);
     }
   }
 
-  await AsyncStorage.setItem(
-    CLAVE_RECORDATORIOS,
-    JSON.stringify(nuevosRecordatorios),
-  );
+  await db.withTransactionAsync(async () => {
+    await db.runAsync("DELETE FROM recordatorios");
+    for (const [promocionId, notificacionId] of nuevosRecordatorios) {
+      await db.runAsync(
+        "INSERT INTO recordatorios (promocion_id, notificacion_id) VALUES (?, ?)",
+        promocionId,
+        notificacionId,
+      );
+    }
+  });
 }
 
 export async function esPromocionGuardada(id: string): Promise<boolean> {
-  const promociones = await obtenerPromocionesGuardadas();
-  return promociones.some((promo) => promo.id === id);
+  const db = await obtenerBaseDatos();
+  const promocion = await db.getFirstAsync<{ promocion_id: string }>(
+    "SELECT promocion_id FROM promociones_guardadas WHERE promocion_id = ?",
+    id,
+  );
+  return promocion !== null;
 }
 
 export async function guardarPromocion(promocion: Promocion): Promise<void> {
-  const promociones = await obtenerPromocionesGuardadas();
-
-  if (promociones.some((promo) => promo.id === promocion.id)) {
+  const db = await obtenerBaseDatos();
+  const guardada = await db.getFirstAsync<{ promocion_id: string }>(
+    "SELECT promocion_id FROM promociones_guardadas WHERE promocion_id = ?",
+    promocion.id,
+  );
+  if (guardada) {
     return;
   }
 
-  promociones.push(promocion);
-
-  await AsyncStorage.setItem(
-    CLAVE_PROMOCIONES_GUARDADAS,
-    JSON.stringify(promociones),
+  await db.runAsync(
+    `INSERT INTO promociones_guardadas (promocion_id, vence_en, datos_json)
+      VALUES (?, ?, ?)`,
+    promocion.id,
+    promocion.hasta,
+    JSON.stringify(promocion),
   );
 
   const fechaVencimiento = new Date(promocion.hasta);
@@ -194,39 +219,33 @@ export async function guardarPromocion(promocion: Promocion): Promise<void> {
   );
 
   if (idRecordatorio) {
-    const datos = await AsyncStorage.getItem(CLAVE_RECORDATORIOS);
-    const recordatorios = datos ? JSON.parse(datos) : {};
-
-    recordatorios[promocion.id] = idRecordatorio;
-
-    await AsyncStorage.setItem(
-      CLAVE_RECORDATORIOS,
-      JSON.stringify(recordatorios),
+    await db.runAsync(
+      `INSERT INTO recordatorios (promocion_id, notificacion_id)
+        VALUES (?, ?)
+        ON CONFLICT(promocion_id)
+        DO UPDATE SET notificacion_id = excluded.notificacion_id`,
+      promocion.id,
+      idRecordatorio,
     );
   }
 }
 
 export async function quitarPromocion(id: string): Promise<void> {
-  const promociones = await obtenerPromocionesGuardadas();
-
-  const actualizados = promociones.filter((promo) => promo.id !== id);
-
-  await AsyncStorage.setItem(
-    CLAVE_PROMOCIONES_GUARDADAS,
-    JSON.stringify(actualizados),
+  const db = await obtenerBaseDatos();
+  await db.runAsync(
+    "DELETE FROM promociones_guardadas WHERE promocion_id = ?",
+    id,
   );
 
-  const datos = await AsyncStorage.getItem(CLAVE_RECORDATORIOS);
-  const recordatorios = datos ? JSON.parse(datos) : {};
-
-  if (recordatorios[id]) {
-    await cancelarRecordatorio(recordatorios[id]);
-
-    delete recordatorios[id];
-
-    await AsyncStorage.setItem(
-      CLAVE_RECORDATORIOS,
-      JSON.stringify(recordatorios),
+  const recordatorio = await db.getFirstAsync<{ notificacion_id: string }>(
+    "SELECT notificacion_id FROM recordatorios WHERE promocion_id = ?",
+    id,
+  );
+  if (recordatorio) {
+    await cancelarRecordatorio(recordatorio.notificacion_id);
+    await db.runAsync(
+      "DELETE FROM recordatorios WHERE promocion_id = ?",
+      id,
     );
   }
 }

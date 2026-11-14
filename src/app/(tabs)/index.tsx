@@ -5,13 +5,16 @@ import {
   TextInput,
   FlatList,
   Pressable,
-  StyleSheet,
   useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { buscarComercios } from "../../service/comercios";
+
 import MensajeError from "../../components/MensajeError";
+import { tabsIndexStyles as styles } from "../../styles/tabs-Index.styles";
+import { buscarComerciosConEstado } from "../../service/comercios";
+import { Comercio } from "../../tipos";
+
 
 const RUBROS = [
   { id: "Todos", nombre: "Todos" },
@@ -56,20 +59,36 @@ export default function DirectorioScreen() {
   const [busqueda, setBusqueda] = useState("");
   const [rubroSeleccionado, setRubroSeleccionado] = useState("Todos");
 
-  const [comercios, setComercios] = useState<any[]>([]);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    async function cargarComercios() {
-      try {
-        const datos = await buscarComercios();
-        setComercios(datos);
-      } catch (error) {
-        console.error("Error al cargar comercios:", error);
-        setError(
-          "No se pudieron cargar los comercios.");
-      }
-    }
 
+  const [comercios, setComercios] = useState<Comercio[]>([]);
+  const [desdeCache, setDesdeCache] = useState(false);
+
+  const [error, setError] = useState("");
+
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
+
+
+
+  async function cargarComercios() {
+    setErrorCarga(null);
+    try {
+      const resultado = await buscarComerciosConEstado();
+      setComercios(resultado.comercios);
+      setDesdeCache(resultado.desdeCache);
+    } catch (error) {
+      console.error("Error al cargar comercios:", error);
+      setErrorCarga(
+        error instanceof Error
+          ? error.message
+          : "No se pudieron cargar los comercios.",
+      );
+
+      setError(
+      "No se pudieron cargar los comercios.");
+    }
+  }
+
+  useEffect(() => {
     cargarComercios();
   }, []);
 
@@ -92,6 +111,12 @@ export default function DirectorioScreen() {
       <View style={styles.encabezado}>
         <Text style={styles.titulo}>Directorio Comercial</Text>
         <Text style={styles.subtitulo}>Concepción del Uruguay</Text>
+
+        {desdeCache && (
+          <Text style={styles.avisoOffline}>
+            Sin conexión: mostrando comercios guardados en este dispositivo.
+          </Text>
+        )}
 
         <TextInput
           value={busqueda}
@@ -129,6 +154,15 @@ export default function DirectorioScreen() {
           }}
         />
       </View>
+
+      {errorCarga && (
+        <View style={styles.estadoSinDatos}>
+          <Text style={styles.textoSinDatos}>{errorCarga}</Text>
+          <Pressable onPress={cargarComercios} accessibilityRole="button">
+            <Text style={styles.reintentar}>Reintentar</Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* Listado con navegación a la ficha */}
       <FlatList
@@ -178,125 +212,3 @@ export default function DirectorioScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  contenedorPrincipal: {
-    flex: 1,
-    backgroundColor: "#F8FAFC",
-  },
-  encabezado: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
-  titulo: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#0B3A5D",
-  },
-  subtitulo: {
-    fontSize: 14,
-    color: "#64748B",
-    marginBottom: 10,
-  },
-  inputBuscador: {
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 15,
-    color: "#0F172A",
-  },
-  contenedorChips: {
-    marginVertical: 6,
-  },
-  listaChips: {
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  chip: {
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: "#CBD5E1",
-    backgroundColor: "#FFFFFF",
-  },
-  chipActivo: {
-    backgroundColor: "#0B3A5D",
-    borderColor: "#0B3A5D",
-  },
-  textoChip: {
-    fontSize: 13,
-    color: "#475569",
-    fontWeight: "500",
-  },
-  textoChipActivo: {
-    color: "#FFFFFF",
-    fontWeight: "bold",
-  },
-  listaComercios: {
-    padding: 16,
-    gap: 12,
-  },
-  tarjeta: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 10,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    marginBottom: 8,
-  },
-  tarjetaAncha: {
-    marginHorizontal: 6,
-  },
-  tarjetaPresionada: {
-    opacity: 0.85,
-  },
-  tarjetaCabecera: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  nombreComercio: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#0F172A",
-    flex: 1,
-  },
-  direccion: {
-    fontSize: 13,
-    color: "#64748B",
-  },
-  rubro: {
-    fontSize: 12,
-    color: "#0B3A5D",
-    fontWeight: "600",
-    marginTop: 6,
-  },
-  badgeEstado: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  badgeAbierto: {
-    backgroundColor: "#DCFCE7",
-  },
-  badgeCerrado: {
-    backgroundColor: "#FEE2E2",
-  },
-  textoBadge: {
-    fontSize: 11,
-    fontWeight: "bold",
-  },
-  textoAbierto: {
-    color: "#166534",
-  },
-  textoCerrado: {
-    color: "#991B1B",
-  },
-});

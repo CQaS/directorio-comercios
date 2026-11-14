@@ -1,5 +1,4 @@
 import { Resena } from "../app/comercio/[id]";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { peticionApi } from "./configuracionApi";
 import { leerToken, leerUsuario  } from "./sesion";
 import { buscarComercios } from "./comercios";
@@ -38,7 +37,7 @@ export async function obtenerMisResenasDeLaApi(): Promise<Resena[]> {
   const token = await leerToken();
 
   if (!token) {
-    throw new Error("No se encontró el token de sesión.");
+    throw new Error("NO_AUTORIZADO: No se encontró el token de sesión.");
   }
 
   const usuario = await leerUsuario();

@@ -1,35 +1,22 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { peticionApi } from "./configuracionApi";
-const urlBase = process.env.EXPO_PUBLIC_API_URL;
-
-const CLAVE_FAVORITOS = "@directorio_comercios_favoritos";
+import { obtenerBaseDatos } from "./baseDatos";
 
 export async function obtenerFavoritos(): Promise<string[]> {
-  try {
-    const datos = await AsyncStorage.getItem(CLAVE_FAVORITOS);
-    const favoritos = datos ? JSON.parse(datos) : [];
-
-    return favoritos;
-  } catch (error) {
-    console.error("Error al obtener favoritos:", error);
-    return [];
-  }
+  const db = await obtenerBaseDatos();
+  const filas = await db.getAllAsync<{ comercio_id: string }>(
+    "SELECT comercio_id FROM favoritos ORDER BY creado_en DESC",
+  );
+  return filas.map((fila) => fila.comercio_id);
 }
 
 export async function agregarFavorito(id: string): Promise<void> {
-  const favoritos = await obtenerFavoritos();
-
-  if (!favoritos.includes(id)) {
-    favoritos.push(id);
-    await AsyncStorage.setItem(CLAVE_FAVORITOS, JSON.stringify(favoritos));
-  }
+  const db = await obtenerBaseDatos();
+  await db.runAsync("INSERT OR IGNORE INTO favoritos (comercio_id) VALUES (?)", id);
 }
 
 export async function quitarFavorito(id: string): Promise<void> {
-  const favoritos = await obtenerFavoritos();
-  const actualizados = favoritos.filter((favoritoId) => favoritoId !== id);
-
-  await AsyncStorage.setItem(CLAVE_FAVORITOS, JSON.stringify(actualizados));
+  const db = await obtenerBaseDatos();
+  await db.runAsync("DELETE FROM favoritos WHERE comercio_id = ?", id);
 }
 
 export async function esFavorito(id: string): Promise<boolean> {
@@ -39,24 +26,28 @@ export async function esFavorito(id: string): Promise<boolean> {
 
 export async function limpiarFavoritosInvalidos(): Promise<void> {
   try {
-    const favoritos = await obtenerFavoritos();
-
     const comercios = await peticionApi<any[]>(
       `/comercios?pagina=1&porPagina=1000`,
     );
 
-    const idsComercios = comercios.map((comercio: any) => comercio.id);
-
-    const favoritosValidos = favoritos.filter((id) =>
-      idsComercios.includes(id),
+    const idsComercios = new Set(
+      comercios.map((comercio: any) => comercio.id),
+    );
+    const db = await obtenerBaseDatos();
+    const favoritos = await db.getAllAsync<{ comercio_id: string }>(
+      "SELECT comercio_id FROM favoritos",
     );
 
-    if (favoritosValidos.length !== favoritos.length) {
-      await AsyncStorage.setItem(
-        CLAVE_FAVORITOS,
-        JSON.stringify(favoritosValidos),
-      );
-    }
+    await db.withTransactionAsync(async () => {
+      for (const { comercio_id: id } of favoritos) {
+        if (!idsComercios.has(id)) {
+          await db.runAsync(
+            "DELETE FROM favoritos WHERE comercio_id = ?",
+            id,
+          );
+        }
+      }
+    });
   } catch (error) {
     console.error("Error al limpiar favoritos:", error);
   }

@@ -1,8 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
-
-
-const CLAVE_NOTIFICACIONES = '@directorio_comercios_notificaciones';
+import { obtenerBaseDatos } from "./baseDatos";
 
 export interface PreferenciasNotificaciones {
 avisosActivos: boolean;
@@ -16,11 +13,21 @@ rubrosSeleccionados: [],
 
 export async function obtenerPreferencias(): Promise<PreferenciasNotificaciones> {
 try {
-    const datos = await AsyncStorage.getItem(CLAVE_NOTIFICACIONES);
+    const db = await obtenerBaseDatos();
+    const fila = await db.getFirstAsync<{
+        avisos_activos: number;
+        rubros_seleccionados: string;
+    }>(
+        `SELECT avisos_activos, rubros_seleccionados
+          FROM preferencias_notificaciones WHERE id = 1`,
+    );
 
-    return datos
-    ? { ...PREFERENCIAS_INICIALES, ...JSON.parse(datos) }
-    : PREFERENCIAS_INICIALES;
+    return fila
+        ? {
+            avisosActivos: fila.avisos_activos === 1,
+            rubrosSeleccionados: JSON.parse(fila.rubros_seleccionados),
+        }
+        : PREFERENCIAS_INICIALES;
 } catch (error) {
     console.error('Error al obtener preferencias:', error);
     return PREFERENCIAS_INICIALES;
@@ -30,9 +37,15 @@ try {
 export async function guardarPreferencias(
 preferencias: PreferenciasNotificaciones
 ): Promise<void> {
-await AsyncStorage.setItem(
-    CLAVE_NOTIFICACIONES,
-    JSON.stringify(preferencias)
+const db = await obtenerBaseDatos();
+await db.runAsync(
+    `INSERT INTO preferencias_notificaciones
+      (id, avisos_activos, rubros_seleccionados) VALUES (1, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        avisos_activos = excluded.avisos_activos,
+        rubros_seleccionados = excluded.rubros_seleccionados`,
+    preferencias.avisosActivos ? 1 : 0,
+    JSON.stringify(preferencias.rubrosSeleccionados),
 );
 
 if (!preferencias.avisosActivos) {
