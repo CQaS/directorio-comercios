@@ -24,7 +24,10 @@ export async function buscarComerciosConEstado(): Promise<{
     try {
       await guardarComerciosEnCache(datos);
     } catch (error) {
-      console.error("No se pudieron guardar los comercios para uso offline:", error);
+      console.error(
+        "No se pudieron guardar los comercios para uso offline:",
+        error,
+      );
     }
     return { comercios: datos, desdeCache: false };
   } catch (error) {
@@ -34,9 +37,26 @@ export async function buscarComerciosConEstado(): Promise<{
       return { comercios: comerciosEnCache, desdeCache: true };
     }
 
-    throw new Error("No hay conexión ni comercios guardados para ver offline.", {
-      cause: error,
-    });
+    throw new Error(
+      "No hay conexión ni comercios guardados para ver offline.",
+      {
+        cause: error,
+      },
+    );
+  }
+}
+
+export async function buscarComercioPorId(id: string): Promise<Comercio> {
+  try {
+    const datos = await peticionApi<Comercio>(`/comercios/${id}`);
+    if (datos.id === "com-118") {
+      datos.videoUrl =
+        "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
+    }
+    return datos;
+  } catch (error) {
+    console.error(`Error al cargar el comercio ${id}:`, error);
+    throw new Error("No se pudo cargar el detalle del comercio.");
   }
 }
 

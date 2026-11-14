@@ -8,6 +8,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { porIdstyles as styles } from "../../styles/porId.styles";
+import { ReproductorVideo } from "../../components/ReproductorVideo";
 import Button from "../../shared/ui/button";
 import { Promocion } from "../../tipos";
 import { buscarPromocionesPorComercio } from "../../service/promociones";
@@ -34,6 +35,7 @@ import {
   esFavorito as consultarFavorito,
 } from "../../service/favoritos";
 import { exito } from "../../service/haptics";
+import { buscarComercioPorId } from "../../service/comercios";
 
 export default function DetalleComercioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -90,19 +92,11 @@ export default function DetalleComercioScreen() {
       );
 
       if (registrado) {
+        setResultadoQR("Canje registrado correctamente!");
 
-      setResultadoQR(
-        "Canje registrado correctamente!"
-      );
-
-      await exito();
-
+        await exito();
       } else {
-
-        setResultadoQR(
-          "Este código ya fue utilizado"
-        );
-
+        setResultadoQR("Este código ya fue utilizado");
       }
     } catch {
       setResultadoQR("El QR no tiene un formato válido");
@@ -135,19 +129,26 @@ export default function DetalleComercioScreen() {
 
     let activo = true;
 
-    async function cargarResenas() {
+    async function cargarDatosPantalla() {
       try {
-        const resenasObtenidas = await obtenerResenasDeComercio(String(id));
+        const [comercioObtenido, resenasObtenidas] = await Promise.all([
+          buscarComercioPorId(String(id)),
+          obtenerResenasDeComercio(String(id)),
+        ]);
 
         if (activo) {
+          setComercio(comercioObtenido);
           setResenas(resenasObtenidas);
         }
       } catch (error) {
-        console.error("Error al cargar las reseñas:", error);
+        console.error(
+          "Error al cargar los datos del comercio o las reseñas:",
+          error,
+        );
       }
     }
 
-    cargarResenas();
+    cargarDatosPantalla();
 
     return () => {
       activo = false;
@@ -253,15 +254,15 @@ export default function DetalleComercioScreen() {
           ? error.message
           : "No se pudo guardar la reseña.",
       );
-
-    }}
+    }
+  }
 
   async function eliminarResena(resenaId: string) {
     try {
       await eliminarResenaDeLaApi(resenaId);
 
-    eliminarResenaGuardada(resenaId);
-    await exito();
+      eliminarResenaGuardada(resenaId);
+      await exito();
 
       setResenas((anteriores) =>
         anteriores.filter((item) => item.id !== resenaId),
@@ -287,9 +288,9 @@ export default function DetalleComercioScreen() {
   }
 
   async function reportarResena(resenaId: string) {
-  try {
-    await reportarResenaEnLaApi(resenaId);
-    await exito();
+    try {
+      await reportarResenaEnLaApi(resenaId);
+      await exito();
 
       setResenas((anteriores) =>
         anteriores.map((item) =>
@@ -318,17 +319,17 @@ export default function DetalleComercioScreen() {
         ),
       );
 
-    setRespuestaNueva("");
-    await exito();
-
-  } catch (error) {
-    console.error("Error al responder la reseña:", error);
-    alert(
-      error instanceof Error
-        ? error.message
-        : "No se pudo responder la reseña.",
-    );
-  }}
+      setRespuestaNueva("");
+      await exito();
+    } catch (error) {
+      console.error("Error al responder la reseña:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "No se pudo responder la reseña.",
+      );
+    }
+  }
   async function cambiarFavorito() {
     if (!id || actualizandoFavorito) return;
 
@@ -354,17 +355,35 @@ export default function DetalleComercioScreen() {
   return (
     <SafeAreaView style={styles.contenedor}>
       <ScrollView>
-        {/* Botón Volver reutilizable */}
         <Button title="Volver" />
         <View style={styles.tarjetaFicha}>
-          <Text style={styles.titulo}>Ficha del Comercio</Text>
-          <Text style={styles.subtitulo}>
-            Identificador del comercio: #{id}
+          <View style={styles.encabezadoComercio}>
+            <Text style={styles.tituloComercio} numberOfLines={2}>
+              {comercio?.nombre ?? "Ficha del Comercio"}
+            </Text>
+            <View style={styles.badgeId}>
+              <Text style={styles.textoBadgeId}>#{id}</Text>
+            </View>
+          </View>
+
+          <Text style={styles.descripcionComercio}>
+            {comercio?.descripcion ??
+              "Acá se visualizan los horarios detallados, promociones vigentes y ubicación del comercio en Concepción del Uruguay."}
           </Text>
-          <Text style={styles.descripcion}>
-            Acá se visualizan los horarios detallados, promociones vigentes y
-            ubicación del comercio en Concepción del Uruguay.
-          </Text>
+
+          <View style={styles.divisor} />
+
+          {comercio?.videoUrl ? (
+            <View style={styles.contenedorVideo}>
+              <ReproductorVideo urlVideo={comercio.videoUrl} />
+            </View>
+          ) : (
+            <View style={styles.contenedorSinVideo}>
+              <Text style={styles.textoSinVideo}>
+                📹 Sin video de presentación
+              </Text>
+            </View>
+          )}
 
           <Pressable
             style={styles.botonEscanear}
