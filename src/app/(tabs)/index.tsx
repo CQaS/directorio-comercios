@@ -14,6 +14,7 @@ import MensajeError from "../../components/MensajeError";
 import { tabsIndexStyles as styles } from "../../styles/tabs-Index.styles";
 import { buscarComerciosConEstado } from "../../service/comercios";
 import { Comercio } from "../../tipos";
+import { detectarPromocionesNuevas } from "../../service/avisos";
 
 
 const RUBROS = [
@@ -75,6 +76,7 @@ export default function DirectorioScreen() {
       const resultado = await buscarComerciosConEstado();
       setComercios(resultado.comercios);
       setDesdeCache(resultado.desdeCache);
+      await detectarPromocionesNuevas();
     } catch (error) {
       console.error("Error al cargar comercios:", error);
       setErrorCarga(

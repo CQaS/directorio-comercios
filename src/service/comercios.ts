@@ -46,10 +46,10 @@ async function guardarComerciosEnCache(comercios: Comercio[]): Promise<void> {
   }
 
   const db = await obtenerBaseDatos();
-  await db.withTransactionAsync(async () => {
-    await db.runAsync("DELETE FROM comercios_cache");
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    await txn.runAsync("DELETE FROM comercios_cache");
     for (const comercio of comercios) {
-      await db.runAsync(
+      await txn.runAsync(
         `INSERT INTO comercios_cache
           (comercio_id, nombre, rubro_id, direccion, datos_json, actualizado_en)
           VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
