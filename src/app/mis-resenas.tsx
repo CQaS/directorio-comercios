@@ -5,9 +5,13 @@ import { useFocusEffect } from "expo-router";
 import { misResenasStyles as styles } from "../styles/misResenas.styles";
 import { Resena } from "./comercio/[id]";
 import Button from "../shared/ui/button";
-import { obtenerMisResenasDeLaApi } from "../service/resenas";
+import {
+  obtenerMisResenasDeLaApi,
+  obtenerResenasDeComercio,
+} from "../service/resenas";
 import { buscarComercios } from "../service/comercios";
 import MensajeError from "../components/MensajeError";
+import { useSesion } from "../contexto/sesion";
 
 export default function MisResenasScreen() {
   const [resenas, setResenas] = useState<Resena[]>([]);
@@ -15,6 +19,8 @@ export default function MisResenasScreen() {
     Record<string, string>
   >({});
   const [error, setError] = useState("");
+  const { estado, usuario, salir } = useSesion();
+  console.log("Usuario en MisResenasScreen:", usuario);
 
   useFocusEffect(
     useCallback(() => {
@@ -22,7 +28,10 @@ export default function MisResenasScreen() {
 
       async function cargarMisResenas() {
         try {
-          const resultado = await obtenerMisResenasDeLaApi();
+          const resultado = await obtenerResenasDeComercio(
+            usuario?.comercioId || "",
+          );
+          console.log("Reseñas obtenidas:", resultado);
 
           if (!activo) return;
 
@@ -35,10 +44,7 @@ export default function MisResenasScreen() {
             if (!activo) return;
 
             const nombres = Object.fromEntries(
-              comercios.map((comercio) => [
-                comercio.id,
-                comercio.nombre,
-              ]),
+              comercios.map((comercio) => [comercio.id, comercio.nombre]),
             );
 
             setNombresComercios(nombres);
@@ -71,9 +77,7 @@ export default function MisResenasScreen() {
       <ScrollView contentContainerStyle={styles.contenido}>
         <Text style={styles.titulo}>Mis reseñas</Text>
 
-        <Text style={styles.subtitulo}>
-          Tus opiniones sobre los comercios
-        </Text>
+        <Text style={styles.subtitulo}>Tus opiniones sobre los comercios</Text>
 
         {resenas.length === 0 ? (
           <View style={styles.tarjetaVacia}>
@@ -84,18 +88,13 @@ export default function MisResenasScreen() {
         ) : (
           resenas.map((resena) => (
             <View key={resena.id} style={styles.tarjeta}>
-              <Text style={styles.nombreComercio}>
-                {nombresComercios[resena.comercioId] ??
-                  "Comercio no identificado"}
-              </Text>
+              <Text style={styles.nombreComercio}>#{resena.id}</Text>
 
               <Text style={styles.estrellas}>
                 {"⭐".repeat(resena.estrellas)}
               </Text>
 
-              <Text style={styles.comentario}>
-                {resena.comentario}
-              </Text>
+              <Text style={styles.comentario}>{resena.comentario}</Text>
 
               {resena.respuesta && (
                 <View style={styles.contenedorRespuesta}>
@@ -103,9 +102,7 @@ export default function MisResenasScreen() {
                     Respuesta del comercio
                   </Text>
 
-                  <Text style={styles.respuesta}>
-                    {resena.respuesta}
-                  </Text>
+                  <Text style={styles.respuesta}>{resena.respuesta}</Text>
                 </View>
               )}
             </View>
