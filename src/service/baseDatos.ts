@@ -159,6 +159,16 @@ async function abrirBaseDatos(): Promise<SQLite.SQLiteDatabase> {
       datos_json TEXT NOT NULL,
       actualizado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS medios_comercios (
+    comercio_id TEXT NOT NULL,
+    url_original TEXT NOT NULL,
+    tipo TEXT NOT NULL,
+    uri_local TEXT NOT NULL,
+    actualizado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (comercio_id, url_original)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_comercios_cache_nombre
       ON comercios_cache(nombre);
     CREATE INDEX IF NOT EXISTS idx_comercios_cache_rubro
