@@ -4,9 +4,8 @@ import { fetch } from "expo/fetch";
 import { API_URL } from "./configuracionApi";
 import { leerToken } from "./sesion";
 
-
 export async function subirArchivo(
-  archivo: ImagePicker.ImagePickerAsset,
+  archivo: ImagePicker.ImagePickerAsset | string,
 ): Promise<string> {
   const token = await leerToken();
 
@@ -14,10 +13,11 @@ export async function subirArchivo(
     throw new Error("Tenés que iniciar sesión para subir archivos.");
   }
 
-  const archivoLocal = new File(archivo.uri);
+  const uri = typeof archivo === "string" ? archivo : archivo.uri;
+
+  const archivoLocal = new File(uri);
   const formulario = new FormData();
 
-  // MODIFICADO: se adjunta un File real, no un objeto { uri, name, type }.
   formulario.append("archivo", archivoLocal);
 
   const respuesta = await fetch(`${API_URL}/archivos`, {
@@ -31,9 +31,7 @@ export async function subirArchivo(
   const json = await respuesta.json();
 
   if (!respuesta.ok) {
-    throw new Error(
-      json.error?.mensaje ?? "No se pudo subir el archivo.",
-    );
+    throw new Error(json.error?.mensaje ?? "No se pudo subir el archivo.");
   }
 
   const url = json.datos?.url ?? json.url;
