@@ -36,7 +36,6 @@ import {
 } from "../../service/favoritos";
 import { exito } from "../../service/haptics";
 import type { Comercio } from "../../tipos";
-import { buscarComercios } from "../../service/comercios";
 import { guardarMediosComercio } from "../../service/archivosOffline";
 import { buscarComercioPorId } from "../../service/comercios";
 import { useSesion } from "../../contexto/sesion";
@@ -137,33 +136,6 @@ const procesarQR = async (data: string) => {
 
   const [comercio, setComercio] = useState<Comercio | null>(null);
 
-useEffect(() => {
-  if (!id) return;
-
-  let activo = true;
-
-  async function cargarComercio() {
-    try {
-      const comercios = await buscarComercios();
-      const encontrado = comercios.find((item) => item.id === id);
-
-      if (activo && encontrado) {
-        const comercioConMedios = await guardarMediosComercio(encontrado);
-        if (activo) {
-          setComercio(comercioConMedios);
-        }
-      }
-    } catch (error) {
-      console.error("No se pudo cargar el comercio:", error);
-    }
-  }
-
-  cargarComercio();
-
-  return () => {
-    activo = false;
-  };
-}, [id]);
 
 
   const [favorito, setFavorito] = useState(false);
@@ -197,8 +169,11 @@ useEffect(() => {
           obtenerResenasDeComercio(String(id)),
         ]);
 
+        const comercioConMedios = await guardarMediosComercio(comercioObtenido);
+
+
         if (activo) {
-          setComercio(comercioObtenido);
+          setComercio(comercioConMedios);
           setResenas(resenasObtenidas);
 
           const miResena = usuario
@@ -223,8 +198,8 @@ useEffect(() => {
     return () => {
       activo = false;
     };
-  }, [id]);
-  
+  }, [id, usuario]);
+
 
   useEffect(() => {
     let activo = true;
@@ -395,7 +370,7 @@ useEffect(() => {
       <ScrollView>
         <Button title="Volver" />
         <View style={styles.tarjetaFicha}>
-          
+
           <View style={styles.encabezadoComercio}>
             <Text style={styles.tituloComercio} numberOfLines={2}>
               {comercio?.nombre ?? "Ficha del Comercio"}
@@ -404,7 +379,7 @@ useEffect(() => {
               <Text style={styles.textoBadgeId}>#{id}</Text>
             </View>
           </View>
-          
+
           {comercio ? (
             <>
               <Text style={styles.descripcionComercio}>

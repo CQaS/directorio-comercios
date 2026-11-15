@@ -50,16 +50,57 @@ export async function buscarComerciosConEstado(): Promise<{
 export async function buscarComercioPorId(id: string): Promise<Comercio> {
   try {
     const datos = await peticionApi<Comercio>(`/comercios/${id}`);
-    if (datos.id === "com-118") {
-      datos.videoUrl =
-        "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
+
+    try {
+      await guardarComercioEnCache(datos);
+    } catch (error) {
+      console.error(
+        `No se pudo guardar el comercio ${id} para uso offline:`, error,
+      );
     }
+
     return datos;
-  } catch (error) {
+    } catch (error) {
     console.error(`Error al cargar el comercio ${id}:`, error);
-    throw new Error("No se pudo cargar el detalle del comercio.");
+
+    const db = await obtenerBaseDatos();
+
+    const fila = await db.getFirstAsync<{ datos_json: string }>(
+    "SELECT datos_json FROM comercios_cache WHERE comercio_id = ?", id,
+  );
+
+  if (fila) {
+    return JSON.parse(fila.datos_json) as Comercio;
   }
+
+  throw new Error("No se pudo cargar el detalle del comercio.", {
+    cause: error,
+  });
+
 }
+}
+
+async function guardarComercioEnCache(comercio: Comercio): Promise<void> {
+  const db = await obtenerBaseDatos();
+
+  await db.runAsync(
+        `INSERT INTO comercios_cache
+          (comercio_id, nombre, rubro_id, direccion, datos_json, actualizado_en)
+          VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+          ON CONFLICT(comercio_id) DO UPDATE SET
+            nombre = excluded.nombre,
+            rubro_id = excluded.rubro_id,
+            direccion = excluded.direccion,
+            datos_json = excluded.datos_json,
+            actualizado_en = CURRENT_TIMESTAMP`,
+        comercio.id,
+        comercio.nombre,
+        comercio.rubroId,
+        comercio.direccion,
+        JSON.stringify(comercio),
+      );
+    }
+
 
 async function guardarComerciosEnCache(comercios: Comercio[]): Promise<void> {
   if (comercios.length === 0) {
@@ -67,10 +108,12 @@ async function guardarComerciosEnCache(comercios: Comercio[]): Promise<void> {
   }
 
   const db = await obtenerBaseDatos();
-  await db.withExclusiveTransactionAsync(async (txn) => {
+
+  await db.withExclusiveTransactionAsync(async(txn) => {
     await txn.runAsync("DELETE FROM comercios_cache");
+
     for (const comercio of comercios) {
-      await txn.runAsync(
+    await txn.runAsync(
         `INSERT INTO comercios_cache
           (comercio_id, nombre, rubro_id, direccion, datos_json, actualizado_en)
           VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -90,11 +133,14 @@ async function guardarComerciosEnCache(comercios: Comercio[]): Promise<void> {
   });
 }
 
+
 async function obtenerComerciosEnCache(): Promise<Comercio[]> {
   const db = await obtenerBaseDatos();
-  const filas = await db.getAllAsync<{ datos_json: string }>(
+
+  const filas = await db.getAllAsync<{datos_json: string}>(
     "SELECT datos_json FROM comercios_cache ORDER BY nombre COLLATE NOCASE",
   );
+
   return filas.map((fila) => JSON.parse(fila.datos_json) as Comercio);
 }
 

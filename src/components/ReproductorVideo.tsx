@@ -8,6 +8,7 @@ interface Props {
 export function ReproductorVideo({ urlVideo }: Props) {
   const player = useVideoPlayer(urlVideo, (player) => {
     player.loop = false;
+
   });
 
   return (
