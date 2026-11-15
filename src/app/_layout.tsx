@@ -82,6 +82,8 @@ useEffect(() => {
         <Stack.Screen name="comercio/[id]" />
         <Stack.Screen name="detalle-promocion" />
         <Stack.Screen name="mis-resenas" />
+        <Stack.Screen name="mis-promociones" />
+        <Stack.Screen name="editar-comercio" />
       </Stack.Protected>
 
       <Stack.Protected guard={estado === "bloqueada"}>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, Image, Pressable, TextInput } from "react-native";
+import { View, Text, Image, Pressable, TextInput, Linking  } from "react-native";
 import {
   Gesture,
   GestureDetector,
@@ -17,7 +17,7 @@ import Animated, {
   useAnimatedStyle,
 } from "react-native-reanimated";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { registrarCanje } from "../../service/canjes";
+import { registrarCanje, validarCanjeEnLaApi } from "../../service/canjes";
 import {
   guardarResena,
   eliminarResenaGuardada,
@@ -58,56 +58,82 @@ export default function DetalleComercioScreen() {
   const [respuestaNueva, setRespuestaNueva] = useState("");
   const [resenaEditando, setResenaEditando] = useState<string | null>(null);
 
-  const procesarQR = async (data: string) => {
+
+const procesarQR = async (data: string) => {
+
+  let datos: {
+    promocionId?: string;
+    comercioId?: string;
+    codigo?: string;
+  };
+
+  try {
+    datos = JSON.parse(data);
+  } catch {
+    setResultadoQR("El QR no tiene un formato válido");
+    return;
+  }
+
+  if (!datos.promocionId || !datos.comercioId || !datos.codigo) {
+    setResultadoQR("QR inválido");
+    return;
+  }
+
+  if (datos.comercioId !== id) {
+    setResultadoQR("Esta promoción no corresponde a este comercio");
+    return;
+  }
+
+  
+  const promociones = await buscarPromocionesPorComercio(datos.comercioId);
+
+  const promocion = promociones.find(
+    (promo) => promo.id === datos.promocionId,
+  );
+
+  if (!promocion) {
+    setResultadoQR("La promoción no pertenece a este comercio");
+    return;
+  }
+
+  const hoy = new Date();
+  const desde = new Date(promocion.desde);
+  const hasta = new Date(promocion.hasta);
+
+  if (!promocion.activa || hoy < desde || hoy > hasta) {
+    setResultadoQR("La promoción no está vigente");
+    return;
+  }
+
+
+  try {
+    await validarCanjeEnLaApi(datos.codigo);
+
+  
     try {
-      const datos = JSON.parse(data);
-
-      if (!datos.promocionId || !datos.comercioId || !datos.codigo) {
-        setResultadoQR("QR inválido");
-        return;
-      }
-
-      if (datos.comercioId !== id) {
-        setResultadoQR("Esta promoción no corresponde a este comercio");
-        return;
-      }
-
-      const promociones = await buscarPromocionesPorComercio(datos.comercioId);
-      const promocion = promociones.find(
-        (promo) => promo.id === datos.promocionId,
-      );
-
-      if (!promocion) {
-        setResultadoQR("La promoción no pertenece a este comercio");
-        return;
-      }
-
-      const hoy = new Date();
-      const desde = new Date(promocion.desde);
-      const hasta = new Date(promocion.hasta);
-
-      if (!promocion.activa || hoy < desde || hoy > hasta) {
-        setResultadoQR("La promoción no está vigente");
-        return;
-      }
-
-      const registrado = await registrarCanje(
+      await registrarCanje(
         datos.promocionId,
         datos.comercioId,
         datos.codigo,
       );
-
-      if (registrado) {
-        setResultadoQR("Canje registrado correctamente!");
-
-        await exito();
-      } else {
-        setResultadoQR("Este código ya fue utilizado");
-      }
-    } catch {
-      setResultadoQR("El QR no tiene un formato válido");
+    } catch (error) {
+      console.error("No se pudo guardar el registro local:", error);
     }
-  };
+
+    setResultadoQR("¡Canje registrado correctamente!");
+    await exito();
+
+  } catch (error) {
+   
+    console.error("Error al validar el canje en la API:", error);
+
+    setResultadoQR(
+      error instanceof Error
+        ? error.message
+        : "No se pudo validar el canje. Intentá nuevamente.",
+    );
+  }
+};
 
   const [comercio, setComercio] = useState<Comercio | null>(null);
 
@@ -388,6 +414,75 @@ useEffect(() => {
               <Text style={styles.descripcion}>
                 Dirección: {comercio.direccion}
               </Text>
+
+          {comercio.telefono && (
+            <Pressable onPress={() => Linking.openURL(`tel:${comercio.telefono}`)}>
+              <Text style={styles.descripcion}>
+                📞 Teléfono: {comercio.telefono}
+              </Text>
+            </Pressable>
+          )}
+
+          {comercio.whatsapp && (
+            <Pressable
+              onPress={() =>
+                Linking.openURL(
+                  `https://wa.me/${comercio.whatsapp?.replace(/\D/g, "")}`,
+                )
+              }
+            >
+              <Text style={styles.descripcion}>
+                💬 WhatsApp: {comercio.whatsapp}
+              </Text>
+            </Pressable>
+          )}
+
+          {comercio.instagram && (
+            <Pressable
+              onPress={() =>
+                Linking.openURL(
+                  comercio.instagram!.startsWith("http")
+                    ? comercio.instagram!
+                    : `https://instagram.com/${comercio.instagram!.replace("@", "")}`,
+                )
+              }
+            >
+              <Text style={styles.descripcion}>
+                📷 Instagram: {comercio.instagram}
+              </Text>
+            </Pressable>
+          )}
+
+          {comercio.horarios?.length > 0 && (
+            <View style={{ marginTop: 12 }}>
+              <Text style={styles.titulo}>Horarios de atención</Text>
+
+              {["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"].map(
+                (dia, indice) => {
+                  const horariosDia = comercio.horarios.filter(
+                    (horario) => horario.dia === indice,
+                  );
+
+                  if (horariosDia.length === 0) return null;
+
+                  return (
+                    <Text key={dia} style={styles.descripcion}>
+                      {dia}: {horariosDia.map((h) => `${h.abre} a ${h.cierra}`).join(" / ")}
+                    </Text>
+                  );
+                },
+              )}
+            </View>
+          )}
+
+          {comercio.mediosDePago?.length > 0 && (
+            <View style={{ marginTop: 12 }}>
+              <Text style={styles.titulo}>Medios de pago</Text>
+              <Text style={styles.descripcion}>
+                {comercio.mediosDePago.join(" · ")}
+              </Text>
+            </View>
+          )}
 
               {comercio.imagenes?.map((imagen, indice) => (
                 <Image
