@@ -1,5 +1,6 @@
 import Constants from "expo-constants";
 import { Platform } from "react-native";
+import { ErrorApi } from "./api";
 
 function obtenerUrlApi(): string {
   /* const urlConfigurada = process.env.EXPO_PUBLIC_API_URL?.trim();
@@ -39,10 +40,17 @@ export async function peticionApi<T>(
     });
 
     if (!respuesta.ok) {
-      throw new Error(
-        `Error en la API (${respuesta.status}): ${respuesta.statusText}`,
-      );
+           const cuerpo = await respuesta.json().catch(() => null);
+           throw new ErrorApi(
+               cuerpo?.error?.mensaje ?? `Error en la API (${respuesta.status})`,
+               cuerpo?.error?.codigo,
+               respuesta.status,
+           );
     }
+
+    if (respuesta.status === 204) {
+           return undefined as T;
+         }
 
     const json = await respuesta.json();
 
