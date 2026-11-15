@@ -23,7 +23,7 @@ import { exito } from "../service/haptics";
 export default function DetallePromocion() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [codigoCliente] = useState(
-    () => `CLI-$(Date.now()}-$ {Math.floor(Math.random() * 10000)}`,
+    () => `CLI-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
   );
   const [promocion, setPromocion] = useState<Promocion | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -113,8 +113,9 @@ export default function DetallePromocion() {
               : "Guardar de promoción"}
         </Text>
       </Pressable>
-      <Text style={styles.descuento}>Descuento: {promocion.descuento}%</Text>
-
+      {promocion.descuento !== null && (
+          <Text style={styles.descuento}>Descuento: {promocion.descuento}%</Text>
+      )}
       <Text style={styles.subtitulo}>Descripción</Text>
       <Text style={styles.texto}>{promocion.detalle}</Text>
       <Text style={styles.subtitulo}>Condiciones</Text>
