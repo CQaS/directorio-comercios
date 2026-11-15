@@ -1,6 +1,7 @@
 import type { Comercio } from "../tipos";
 import { peticionApi } from "./configuracionApi";
 import { obtenerBaseDatos } from "./baseDatos";
+import { leerToken } from "./sesion";
 
 export async function buscarComercios(): Promise<Comercio[]> {
   const resultado = await buscarComerciosConEstado();
@@ -95,4 +96,55 @@ async function obtenerComerciosEnCache(): Promise<Comercio[]> {
     "SELECT datos_json FROM comercios_cache ORDER BY nombre COLLATE NOCASE",
   );
   return filas.map((fila) => JSON.parse(fila.datos_json) as Comercio);
+}
+
+export type DatosActualizacionComercio = {
+  nombre?: string;
+  descripcion?: string;
+  direccion?: string;
+  coordenadas?: {
+    latitud: number;
+    longitud: number;
+  };
+  telefono?: string | null;
+  whatsapp?: string | null;
+  instagram?: string | null;
+  horarios?: Comercio["horarios"];
+  imagenes?: string[];
+  videoUrl?: string | null;
+  mediosDePago?: string[];
+  cerradoHasta?: string | null;
+};
+
+export async function obtenerMiComercio(): Promise<Comercio> {
+  const token = await leerToken();
+
+  if (!token) {
+    throw new Error("Tenés que iniciar sesión para acceder a tu comercio.");
+  }
+
+  return peticionApi<Comercio>("/mi-comercio", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function actualizarMiComercio(
+  cambios: DatosActualizacionComercio,
+): Promise<Comercio> {
+  const token = await leerToken();
+
+  if (!token) {
+    throw new Error("Tenés que iniciar sesión para modificar tu comercio.");
+  }
+
+  return peticionApi<Comercio>("/mi-comercio", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(cambios),
+  });
 }

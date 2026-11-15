@@ -1,5 +1,6 @@
 import { Promocion } from "../tipos";
 import { peticionApi } from "./configuracionApi";
+import { leerToken } from "./sesion";
 
 export async function buscarPromocionesPorComercio(
   comercioId: string,
@@ -128,3 +129,92 @@ export async function buscarPromocionesPorRubro(
     return [];
   }
 }
+
+
+export type DatosNuevaPromocion = {
+  titulo: string;
+  detalle: string;
+  descuento: number | null;
+  desde: string;
+  hasta: string;
+  imagenUrl: string | null;
+  soloApp: boolean;
+};
+
+export type DatosEdicionPromocion = Partial<DatosNuevaPromocion>;
+
+export async function obtenerMisPromociones(): Promise<Promocion[]> {
+  const token = await leerToken();
+
+  if (!token) {
+    throw new Error("Tenés que iniciar sesión para ver tus promociones.");
+  }
+
+  return peticionApi<Promocion[]>("/mi-comercio/promociones", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+
+export async function crearPromocion(
+  datos: DatosNuevaPromocion,
+): Promise<Promocion> {
+  const token = await leerToken();
+
+  if (!token) {
+    throw new Error("Tenés que iniciar sesión para crear una promoción.");
+  }
+
+  return peticionApi<Promocion>("/mi-comercio/promociones", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(datos),
+  });
+}
+
+export async function editarPromocion(
+  id: string,
+  cambios: DatosEdicionPromocion,
+): Promise<Promocion> {
+  const token = await leerToken();
+
+  if (!token) {
+    throw new Error("Tenés que iniciar sesión para editar una promoción.");
+  }
+
+  return peticionApi<Promocion>(
+    `/mi-comercio/promociones/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(cambios),
+    },
+  );
+}
+
+
+export async function eliminarPromocion(id: string): Promise<void> {
+  const token = await leerToken();
+
+  if (!token) {
+    throw new Error("Tenés que iniciar sesión para eliminar una promoción.");
+  }
+
+  await peticionApi<void>(
+    `/mi-comercio/promociones/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+}
+

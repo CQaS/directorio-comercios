@@ -12,7 +12,7 @@ import { DetallesPromoStyles as styles } from "../styles/detallesPromo.styles";
 import { obtenerPromocionesPorId } from "../service/promociones";
 import { Promocion } from "../tipos";
 import QRCode from "react-native-qrcode-svg";
-import { contarCanjesPorPromocion } from "../service/canjes";
+import { generarCodigoPromocion, contarCanjesPorPromocion } from "../service/canjes";
 import {
   guardarPromocion,
   quitarPromocion,
@@ -22,14 +22,15 @@ import { exito } from "../service/haptics";
 
 export default function DetallePromocion() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [codigoCliente] = useState(
-    () => `CLI-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-  );
+  const [codigoCliente, setCodigoCliente] = useState<string | null>(null);
+  const [cargandoCodigo, setCargandoCodigo] = useState(false);
+  const [errorCodigo, setErrorCodigo] = useState("");
   const [promocion, setPromocion] = useState<Promocion | null>(null);
   const [cargando, setCargando] = useState(true);
   const [totalCanjes, setTotalCanjes] = useState(0);
   const [guardada, setGuardada] = useState(false);
   const [actualizandoGuardado, setActualizandoGuardado] = useState(false);
+  
 
   useEffect(() => {
     async function cargarPromocion() {
@@ -57,6 +58,29 @@ export default function DetallePromocion() {
 
     cargarPromocion();
   }, [id]);
+
+
+async function generarCodigo() {
+
+  if (!promocion || cargandoCodigo) return;
+
+  setCargandoCodigo(true);
+  setErrorCodigo("");
+
+  try {
+
+    const codigo = await generarCodigoPromocion(promocion.id);
+
+    setCodigoCliente(codigo);
+  } catch (error) {
+    console.error("Error al generar el código:", error);
+
+    setErrorCodigo("No se pudo generar el código. Intentá nuevamente.");
+  } finally {
+    setCargandoCodigo(false);
+  }
+}
+
 
   async function cambiarPromocionGuardada() {
     if (!promocion) return;
@@ -137,21 +161,47 @@ export default function DetallePromocion() {
       )}
 
       {promocion.soloApp && (
-        <View style={styles.contenedorQR}>
-          <Text style={styles.subtitulo}>Código QR de la promoción</Text>
+      <View style={styles.contenedorQR}>
+        <Text style={styles.subtitulo}>Código QR de la promoción</Text>
 
-          <QRCode
-            value={JSON.stringify({
-              promocionId: promocion.id,
-              comercioId: promocion.comercioId,
-              codigo: codigoCliente,
-            })}
-            size={200}
-          />
+        {!codigoCliente ? (
+          <>
+            <Text style={styles.texto}>
+              Generá tu código para utilizar esta promoción.
+            </Text>
 
-          <Text style={styles.texto}>Mostrá este código en el comercio.</Text>
-        </View>
-      )}
+            <Pressable
+              onPress={generarCodigo}
+              disabled={cargandoCodigo}
+              style={styles.botonGuardado}
+            >
+              <Text style={styles.textoBotonGuardado}>
+                {cargandoCodigo ? "Generando..." : "Generar código QR"}
+              </Text>
+            </Pressable>
+
+            {!!errorCodigo && (
+              <Text style={styles.texto}>{errorCodigo}</Text>
+            )}
+          </>
+        ) : (
+          <>
+            <QRCode
+              value={JSON.stringify({
+                promocionId: promocion.id,
+                comercioId: promocion.comercioId,
+                codigo: codigoCliente,
+              })}
+              size={200}
+            />
+
+            <Text style={styles.texto}>
+              Mostrá este código en el comercio.
+            </Text>
+          </>
+        )}
+      </View>
+    )}
     </ScrollView>
   );
 }

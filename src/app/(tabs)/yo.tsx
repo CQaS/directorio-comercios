@@ -110,6 +110,63 @@ export default function YoScreen() {
           </View>
         </View>
 
+
+{/* NUEVO: acceso a la administración de promociones para cuentas de comercio */}
+      {estado === "autenticado" && usuario?.rol === "comercio" && (
+        <>
+          <Text style={styles.sectionTitle}>Administración del comercio</Text>
+
+          <View style={styles.card}>
+            <Pressable
+              style={styles.rowItem}
+              role="button"
+              accessibilityLabel="Administrar mis promociones"
+              onPress={() => router.push("/mis-promociones" as any)}
+            >
+              <View style={styles.rowLeft}>
+                <Ionicons
+                  name="pricetags-outline"
+                  size={22}
+                  color="#0B3A5D"
+                />
+                <Text style={styles.rowText}>Mis promociones</Text>
+              </View>
+
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color="#8E8E93"
+              />
+            </Pressable>
+
+
+            <Pressable
+              style={styles.rowItem}
+              role="button"
+              accessibilityLabel="Editar mi comercio"
+              onPress={() => router.push("/editar-comercio" as any)}
+            >
+              <View style={styles.rowLeft}>
+                <Ionicons
+                  name="storefront-outline"
+                  size={22}
+                  color="#0B3A5D"
+                />
+                <Text style={styles.rowText}>Editar mi comercio</Text>
+              </View>
+
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color="#8E8E93"
+              />
+            </Pressable>
+
+          </View>
+        </>
+      )}
+
+
         {/* Sección: Favoritos y Actividad */}
         <Text style={styles.sectionTitle}>Mi Actividad</Text>
         <View style={styles.card}>
