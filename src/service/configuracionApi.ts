@@ -1,6 +1,13 @@
 import Constants from "expo-constants";
 import { Platform } from "react-native";
-import { ErrorApi } from "./api";
+
+
+export class ErrorApi extends Error {
+  constructor(mensaje: string, public codigo?: string, public estado?: number) {
+    super(mensaje);
+    this.name = "ErrorApi";
+  }
+}
 
 function obtenerUrlApi(): string {
   /* const urlConfigurada = process.env.EXPO_PUBLIC_API_URL?.trim();
