@@ -27,7 +27,7 @@ import {
   reportarResenaEnLaApi,
   obtenerResenasDeComercio,
   responderResenaEnLaApi,
-  obtenerMisResenasDeLaApi,
+
 } from "../../service/resenas";
 import {
   agregarFavorito,
@@ -39,9 +39,12 @@ import type { Comercio } from "../../tipos";
 import { buscarComercios } from "../../service/comercios";
 import { guardarMediosComercio } from "../../service/archivosOffline";
 import { buscarComercioPorId } from "../../service/comercios";
+import { useSesion } from "../../contexto/sesion";
+
 
 export default function DetalleComercioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { usuario } = useSesion();
   const [permisoCamara, solicitarPermisoCamara] = useCameraPermissions();
   const [escanearQR, setEscanearQR] = useState(false);
   const [resultadoQR, setResultadoQR] = useState("");
@@ -171,6 +174,15 @@ useEffect(() => {
         if (activo) {
           setComercio(comercioObtenido);
           setResenas(resenasObtenidas);
+
+          const miResena = usuario
+                  ? resenasObtenidas.find((r) => r.usuarioId === usuario.id)
+                  : undefined;
+              if (miResena) {
+                  setResenaEditando(miResena.id);
+                  setComentarioNuevo(miResena.comentario);
+                  setEstrellasSeleccionadas(miResena.estrellas);
+            }
         }
       } catch (error) {
         console.error(
@@ -186,43 +198,7 @@ useEffect(() => {
       activo = false;
     };
   }, [id]);
-  useEffect(() => {
-    let activo = true;
-
-    async function cargarMiResena() {
-      try {
-        const misResenas = await obtenerMisResenasDeLaApi();
-
-        if (!activo) return;
-
-        const miResena = misResenas.find(
-          (resena) => resena.comercioId === String(id),
-        );
-
-        if (miResena) {
-          setResenaEditando(miResena.id);
-          setComentarioNuevo(miResena.comentario);
-          setEstrellasSeleccionadas(miResena.estrellas);
-        }
-      } catch (error: any) {
-        console.error("Error al buscar mi reseña:", error);
-
-        // Si el error es de autorización sin token, redirigimos al login
-        if (error.message.includes("NO_AUTORIZADO")) {
-          // Redirigimos al usuario al login y evitamos que pueda volver atrás
-          router.replace("/");
-        }
-      }
-    }
-
-    if (id) {
-      cargarMiResena();
-    }
-
-    return () => {
-      activo = false;
-    };
-  }, [id]);
+  
 
   useEffect(() => {
     let activo = true;
@@ -246,6 +222,10 @@ useEffect(() => {
 
   async function publicarResena() {
     if (comentarioNuevo.trim() === "") return;
+    if (!usuario) {
+        alert("Necesitás ingresar con tu cuenta para dejar una reseña.");
+        return;
+    }
 
     try {
       if (resenaEditando !== null) {
@@ -365,7 +345,7 @@ useEffect(() => {
   async function cambiarFavorito() {
     if (!id || actualizandoFavorito) return;
 
-    setFavorito(true);
+    setActualizandoFavorito(true);
 
     try {
       if (favorito) {
@@ -511,8 +491,8 @@ useEffect(() => {
 
             {listaPromociones.map((promocion) => (
               <Text key={promocion.id} style={styles.descripcion}>
-                {promocion.titulo}: {promocion.detalle} - Descuento:{" "}
-                {promocion.descuento}%
+                {promocion.titulo}: {promocion.detalle}
+                {promocion.descuento !== null ? ` - Descuento: ${promocion.descuento}%` : ""}
               </Text>
             ))}
           </View>
@@ -553,56 +533,72 @@ useEffect(() => {
           <Text style={styles.descripcion}>
             Promedio: {promedioResenas.toFixed(1)} / 5 ⭐
           </Text>
-          {resenasOrdenadas.map((item) => (
-            <View key={item.id} style={styles.tarjetaFicha}>
-              <Text style={styles.descripcion}>
-                {"⭐".repeat(item.estrellas)}
-              </Text>
-              <Text style={styles.descripcion}>{item.comentario}</Text>
-              <Pressable
-                onPress={() => eliminarResena(item.id)}
-                style={styles.botonEliminar}
-              >
-                <Text style={styles.textoEliminar}>Eliminar reseña</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => editarResena(item.id)}
-                style={styles.botonEditar}
-              >
-                <Text style={styles.textoEditar}>Editar reseña</Text>
-              </Pressable>
-              <Pressable
+          {resenasOrdenadas.map((item) => {
+  const esMia = usuario?.id === item.usuarioId;
+  const esDuenioDelComercio =
+      usuario?.rol === "comercio" && usuario.comercioId === String(id);
+
+  return (
+    <View key={item.id} style={styles.tarjetaFicha}>
+        <Text style={styles.descripcion}>
+            {"  ⭐".repeat(item.estrellas)}
+        </Text>
+        <Text style={styles.descripcion}>{item.comentario}</Text>
+
+        {esMia && (
+            <>
+                <Pressable
+                    onPress={() => eliminarResena(item.id)}
+                    style={styles.botonEliminar}
+                >
+                    <Text style={styles.textoEliminar}>Eliminar reseña</Text>
+                </Pressable>
+                <Pressable
+                    onPress={() => editarResena(item.id)}
+                    style={styles.botonEditar}
+                >
+                    <Text style={styles.textoEditar}>Editar reseña</Text>
+                </Pressable>
+            </>
+        )}
+
+        {usuario && !esMia && (
+            <Pressable
                 onPress={() => reportarResena(item.id)}
                 style={styles.botonReportar}
-              >
+            >
                 <Text style={styles.textoReportar}>
-                  {item.reportada ? "Reseña reportada" : "Reportar reseña"}
+                    {item.reportada ? "Reseña reportada" : "Reportar reseña"}
                 </Text>
-              </Pressable>
+            </Pressable>
+        )}
 
-              {item.respuesta ? (
-                <Text style={styles.descripcion}>
-                  Respuesta del comercio: {item.respuesta}
-                </Text>
-              ) : (
+        {item.respuesta ? (
+            <Text style={styles.descripcion}>
+                Respuesta del comercio: {item.respuesta}
+            </Text>
+        ) : (
+            esDuenioDelComercio && (
                 <>
-                  <TextInput
-                    style={styles.campoComentario}
-                    placeholder="Respuesta del comercio..."
-                    value={respuestaNueva}
-                    onChangeText={setRespuestaNueva}
-                    multiline
-                  />
-                  <Pressable
-                    style={styles.botonRespuesta}
-                    onPress={() => responderResena(item.id, respuestaNueva)}
-                  >
-                    <Text style={styles.textoBotonRespuesta}>Responder</Text>
-                  </Pressable>
+                    <TextInput
+                        style={styles.campoComentario}
+                        placeholder="Respuesta del comercio..."
+                        value={respuestaNueva}
+                        onChangeText={setRespuestaNueva}
+                        multiline
+                    />
+                    <Pressable
+                        style={styles.botonRespuesta}
+                        onPress={() => responderResena(item.id, respuestaNueva)}
+                    >
+                        <Text style={styles.textoBotonRespuesta}>Responder</Text>
+                    </Pressable>
                 </>
-              )}
-            </View>
-          ))}
+            )
+        )}
+    </View>
+  );
+})}
         </View>
       </ScrollView>
     </SafeAreaView>

@@ -83,6 +83,8 @@ export default function PantallaMapa() {
 
   const latitude = -32.4827;
   const longitude = -58.237;
+  const origenLat = ubicacionUsuario?.latitude ?? latitude;
+ const origenLng = ubicacionUsuario?.longitude ?? longitude;
 
   const comerciosFiltradosOrdenados = (
     Array.isArray(comercios) ? comercios : []
@@ -93,8 +95,8 @@ export default function PantallaMapa() {
     .map((comercio) => {
       const distancia = comercio.coordenadas
         ? calcularDistancia(
-            latitude,
-            longitude,
+            origenLat,
+            origenLng,
             comercio.coordenadas.latitud,
             comercio.coordenadas.longitud,
           )
@@ -106,10 +108,9 @@ export default function PantallaMapa() {
   const datosMapa = JSON.stringify({
     latitude,
     longitude,
-    usuario: {
-      latitude: -32.4827,
-      longitude: -58.237,
-    },
+    usuario: ubicacionUsuario
+        ? { latitude: origenLat, longitude: origenLng }
+        : null,
 
     comercios: comerciosFiltradosOrdenados
       .filter((c) => c.coordenadas)
