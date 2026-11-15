@@ -16,9 +16,9 @@ import { buscarComerciosConEstado } from "../../service/comercios";
 import { Comercio } from "../../tipos";
 import { detectarPromocionesNuevas } from "../../service/avisos";
 
-
 const RUBROS = [
   { id: "Todos", nombre: "Todos" },
+  { id: "abiertos", nombre: "🟢 Abierto ahora" },
   { id: "rub-gastronomia", nombre: "Gastronomía" },
   { id: "rub-indumentaria", nombre: "Indumentaria" },
   { id: "rub-hogar", nombre: "Hogar" },
@@ -60,15 +60,12 @@ export default function DirectorioScreen() {
   const [busqueda, setBusqueda] = useState("");
   const [rubroSeleccionado, setRubroSeleccionado] = useState("Todos");
 
-
   const [comercios, setComercios] = useState<Comercio[]>([]);
   const [desdeCache, setDesdeCache] = useState(false);
 
   const [error, setError] = useState("");
 
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
-
-
 
   async function cargarComercios() {
     setErrorCarga(null);
@@ -85,8 +82,7 @@ export default function DirectorioScreen() {
           : "No se pudieron cargar los comercios.",
       );
 
-      setError(
-      "No se pudieron cargar los comercios.");
+      setError("No se pudieron cargar los comercios.");
     }
   }
 
@@ -99,11 +95,21 @@ export default function DirectorioScreen() {
 
   const comerciosFiltrados = useMemo(() => {
     return comercios.filter((comercio) => {
-      const coincideTexto = comercio.nombre
-        .toLowerCase()
-        .includes(busqueda.toLowerCase());
-      const coincideRubro =
-        rubroSeleccionado === "Todos" || comercio.rubroId === rubroSeleccionado;
+      const textoBusqueda = busqueda.toLowerCase();
+
+      // Ampliamos la búsqueda para que coincida con Nombre, Dirección o Rubro
+      const coincideTexto =
+        comercio.nombre.toLowerCase().includes(textoBusqueda) ||
+        comercio.direccion.toLowerCase().includes(textoBusqueda) ||
+        comercio.rubroId.toLowerCase().includes(textoBusqueda);
+
+      let coincideRubro = true;
+      if (rubroSeleccionado === "abiertos") {
+        coincideRubro = estaAbierto(comercio.horarios);
+      } else if (rubroSeleccionado !== "Todos") {
+        coincideRubro = comercio.rubroId === rubroSeleccionado;
+      }
+
       return coincideTexto && coincideRubro;
     });
   }, [comercios, busqueda, rubroSeleccionado]);
@@ -131,7 +137,7 @@ export default function DirectorioScreen() {
 
       {/* Chips horizontales condicionales */}
       <View style={styles.contenedorChips}>
-      <MensajeError mensaje={error} />
+        <MensajeError mensaje={error} />
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}

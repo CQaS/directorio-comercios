@@ -6,8 +6,9 @@ import {
   clasificarPromociones,
   buscarPromocionesPorRubro,
 } from "../../service/promociones";
-import type { Promocion } from "../../tipos";
+import type { Promocion, Comercio } from "../../tipos";
 import { useRouter } from "expo-router";
+import { buscarComercios } from "../../service/comercios";
 
 export default function PantallaPromos() {
   const router = useRouter();
@@ -15,6 +16,7 @@ export default function PantallaPromos() {
   const [rubroSeleccionado, setRubroSeleccionado] = useState<string | null>(
     null,
   );
+  const [comercios, setComercios] = useState<Comercio[]>([]);
   const rubros = [
     "Gastronomía",
     "Indumentaria",
@@ -28,16 +30,24 @@ export default function PantallaPromos() {
   ];
 
   useEffect(() => {
-    async function cargarPromociones() {
-      const resultado = rubroSeleccionado
-        ? await buscarPromocionesPorRubro(rubroSeleccionado)
-        : await buscarPromociones();
+  async function cargarPromociones() {
+    const resultado = rubroSeleccionado
+      ? await buscarPromocionesPorRubro(rubroSeleccionado)
+      : await buscarPromociones();
 
-      setPromociones(resultado);
-    }
+    setPromociones(resultado);
 
-    cargarPromociones();
-  }, [rubroSeleccionado]);
+    const resultadoComercios = await buscarComercios();
+    setComercios(resultadoComercios);
+  }
+
+  cargarPromociones();
+}, [rubroSeleccionado]);
+
+  const obtenerNombreComercio = (comercioId: string) => {
+    const comercio = comercios.find((item) => item.id === comercioId);
+    return comercio?.nombre ?? "Comercio no identificado";
+  };
 
   const grupos = clasificarPromociones(promociones);
 
@@ -63,7 +73,14 @@ export default function PantallaPromos() {
               rubroSeleccionado === rubro && styles.botonRubroSeleccionado,
             ]}
           >
-            <Text>{rubro}</Text>
+            <Text
+            style={{
+              color: rubroSeleccionado === rubro ? "#ffffff" : "#183153",
+              fontWeight: "600",
+              }}
+              >
+                {rubro}
+                </Text>
           </Pressable>
         ))}
       </View>
@@ -71,59 +88,116 @@ export default function PantallaPromos() {
       <Text style={styles.subtitulo}>Promociones vigentes</Text>
       {grupos.vigentes.map((promo) => (
         <Pressable
-          key={promo.id}
-          style={styles.tarjeta}
-          onPress={() =>
-            router.push({
-              pathname: "/detalle-promocion",
-              params: { id: promo.id },
-            })
-          }
-        >
-          <Text style={styles.nombre}>{promo.titulo}</Text>
-          <Text>{promo.detalle}</Text>
-          <Text>Descuento: {promo.descuento}</Text>
-          <Text>Válido hasta: {promo.hasta}</Text>
-          <Text>Canjes registrados: {promo.usos}</Text>
-        </Pressable>
-      ))}
+        key={promo.id}
+        style={styles.tarjeta}
+        onPress={() =>
+        router.push({
+        pathname: "/detalle-promocion",
+        params: { id: promo.id },
+      })
+    }
+  >
+    <View style={styles.tarjetaContenido}>
+      <Text style={styles.comercio}>
+        {obtenerNombreComercio(promo.comercioId)}
+      </Text>
+
+      <Text style={styles.nombre}>{promo.titulo}</Text>
+
+      {promo.descuento != null && (
+        <Text style={styles.descuento}>
+          {promo.descuento}% OFF
+        </Text>
+      )}
+
+      <Text style={styles.detalle}>{promo.detalle}</Text>
+
+      <Text style={styles.informacion}>
+        Válido hasta: {promo.hasta}
+      </Text>
+
+      <Text style={styles.informacion}>
+        Canjes registrados: {promo.usos}
+      </Text>
+    </View>
+  </Pressable>
+))}
 
       <Text style={styles.subtitulo}>Promociones por vencer</Text>
       {grupos.porVencer.map((promo) => (
-        <Pressable
-          key={promo.id}
-          style={styles.tarjeta}
-          onPress={() =>
-            router.push({
-              pathname: "/detalle-promocion",
-              params: { id: promo.id },
-            })
-          }
-        >
-          <Text style={styles.nombre}>{promo.titulo}</Text>
-          <Text>Válido hasta: {promo.hasta}</Text>
-          <Text>Canjes registrados: {promo.usos}</Text>
-        </Pressable>
-      ))}
+  <Pressable
+    key={promo.id}
+    style={styles.tarjeta}
+    onPress={() =>
+      router.push({
+        pathname: "/detalle-promocion",
+        params: { id: promo.id },
+      })
+    }
+  >
+    <View style={styles.tarjetaContenido}>
+      <Text style={styles.comercio}>
+        {obtenerNombreComercio(promo.comercioId)}
+      </Text>
+
+      <Text style={styles.nombre}>{promo.titulo}</Text>
+
+      {promo.descuento != null && (
+        <Text style={styles.descuento}>
+          {promo.descuento}% OFF
+        </Text>
+      )}
+
+      <Text style={styles.detalle}>{promo.detalle}</Text>
+
+      <Text style={styles.informacion}>
+        Válido hasta: {promo.hasta}
+      </Text>
+
+      <Text style={styles.informacion}>
+        Canjes registrados: {promo.usos}
+      </Text>
+    </View>
+  </Pressable>
+))}
 
       <Text style={styles.subtitulo}>Próximas promociones</Text>
       {grupos.proximas.map((promo) => (
-        <Pressable
-          key={promo.id}
-          style={styles.tarjeta}
-          onPress={() =>
-            router.push({
-              pathname: "/detalle-promocion",
-              params: { id: promo.id },
-            })
-          }
-        >
-          <Text style={styles.nombre}>{promo.titulo}</Text>
-          <Text>Descuento: {promo.descuento}</Text>
-          <Text>Válido hasta: {promo.hasta}</Text>
-          <Text>Canjes registrados: {promo.usos}</Text>
-        </Pressable>
-      ))}
+  <Pressable
+    key={promo.id}
+    style={styles.tarjeta}
+    onPress={() =>
+      router.push({
+        pathname: "/detalle-promocion",
+        params: { id: promo.id },
+      })
+    }
+  >
+    <View style={styles.tarjetaContenido}>
+      <Text style={styles.comercio}>
+        {obtenerNombreComercio(promo.comercioId)}
+      </Text>
+
+      <Text style={styles.nombre}>{promo.titulo}</Text>
+
+      {promo.descuento != null && (
+        <Text style={styles.descuento}>
+          {promo.descuento}% OFF
+        </Text>
+      )}
+
+      <Text style={styles.detalle}>{promo.detalle}</Text>
+
+      <Text style={styles.informacion}>
+        Válido hasta: {promo.hasta}
+      </Text>
+
+      <Text style={styles.informacion}>
+        Canjes registrados: {promo.usos}
+      </Text>
+    </View>
+  </Pressable>
+))}
     </ScrollView>
   );
 }
