@@ -98,43 +98,58 @@ export default function DetallePromocion() {
         options={{ title: "Detalle de promoción", headerShown: true }}
       />
 
-      <Text style={styles.titulo}>{promocion.titulo}</Text>
+      
+      <View style={styles.tarjetaPrincipal}>
+        <Text style={styles.titulo}>{promocion.titulo}</Text>
 
-      <Pressable
-        onPress={cambiarPromocionGuardada}
-        disabled={actualizandoGuardado}
-        style={styles.botonGuardado}
-      >
-        <Text style={styles.textoBotonGuardado}>
-          {actualizandoGuardado
-            ? "Actualizando..."
-            : guardada
-              ? "Quitar de guardadas"
-              : "Guardar de promoción"}
+        {promocion.descuento !== null && (
+          <Text style={styles.descuento}>
+            {promocion.descuento}% OFF
+          </Text>
+        )}
+
+        <Pressable
+          onPress={cambiarPromocionGuardada}
+          disabled={actualizandoGuardado}
+          style={styles.botonGuardado}
+        >
+          <Text style={styles.textoBotonGuardado}>
+            {actualizandoGuardado
+              ? "Actualizando..."
+              : guardada
+                ? "Quitar de guardadas"
+                : "Guardar promoción"}
+          </Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.tarjetaInfo}>
+        <Text style={styles.subtitulo}>Descripción</Text>
+        <Text style={styles.texto}>{promocion.detalle}</Text>
+
+        <Text style={styles.subtitulo}>Condiciones</Text>
+        <Text style={styles.texto}>
+          {promocion.condiciones || "Consultá las condiciones en el comercio."}
         </Text>
-      </Pressable>
-      {promocion.descuento !== null && (
-          <Text style={styles.descuento}>Descuento: {promocion.descuento}%</Text>
-      )}
-      <Text style={styles.subtitulo}>Descripción</Text>
-      <Text style={styles.texto}>{promocion.detalle}</Text>
-      <Text style={styles.subtitulo}>Condiciones</Text>
-      <Text style={styles.texto}>{promocion.condiciones}</Text>
+      </View>
 
-      <Text style={styles.subtitulo}>Vigencia</Text>
-      <Text style={styles.texto}>Desde: {promocion.desde}</Text>
-      <Text style={styles.texto}>Hasta: {promocion.hasta}</Text>
-      <Text style={styles.texto}>
-        Estado: {promocion.activa ? "Activa" : "Inactiva"}
+      <View style={styles.tarjetaInfo}>
+        <Text style={styles.subtitulo}>Vigencia</Text>
+        <Text style={styles.texto}>Desde: {promocion.desde}</Text>
+        <Text style={styles.texto}>Hasta: {promocion.hasta}</Text>
+        <Text style={styles.texto}>
+          Estado: {promocion.activa ? "Activa" : "Inactiva"}
+        </Text>
+        <Text style={styles.texto}>
+          Canjes registrados: {totalCanjes}
+        </Text>
+      </View>
+
+      <Text style={styles.etiqueta}>
+        {promocion.soloApp
+          ? "Promoción exclusiva de la app"
+          : "Disponible para todos"}
       </Text>
-      <Text style={styles.texto}>Canjes registrados: {totalCanjes}</Text>
-      {!promocion.soloApp && (
-        <Text style={styles.etiqueta}>Disponible para todos</Text>
-      )}
-
-      {promocion.soloApp && (
-        <Text style={styles.etiqueta}>Promoción exclusiva de la app</Text>
-      )}
 
       {promocion.soloApp && (
         <View style={styles.contenedorQR}>
@@ -149,9 +164,12 @@ export default function DetallePromocion() {
             size={200}
           />
 
-          <Text style={styles.texto}>Mostrá este código en el comercio.</Text>
+          <Text style={styles.texto}>
+            Mostrá este código en el comercio.
+          </Text>
         </View>
       )}
+
     </ScrollView>
   );
 }
