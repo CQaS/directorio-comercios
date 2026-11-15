@@ -6,6 +6,7 @@ import {
   FlatList,
   Pressable,
   useWindowDimensions,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -67,6 +68,8 @@ export default function DirectorioScreen() {
 
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
 
+  const [cargandoRefresco, setCargandoRefresco] = useState(false);
+
   async function cargarComercios() {
     setErrorCarga(null);
     try {
@@ -83,6 +86,15 @@ export default function DirectorioScreen() {
       );
 
       setError("No se pudieron cargar los comercios.");
+    }
+  }
+
+  async function alRefrescar() {
+    setCargandoRefresco(true);
+    try {
+      await cargarComercios();
+    } finally {
+      setCargandoRefresco(false);
     }
   }
 
@@ -179,6 +191,14 @@ export default function DirectorioScreen() {
         data={comerciosFiltrados}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listaComercios}
+        refreshControl={
+          <RefreshControl
+            refreshing={cargandoRefresco}
+            onRefresh={alRefrescar}
+            tintColor="#7A5C3E"
+            colors={["#7A5C3E"]}
+          />
+        }
         renderItem={({ item }) => (
           <Pressable
             role="button"

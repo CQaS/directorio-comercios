@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, Image, Pressable, TextInput, Linking  } from "react-native";
+import { View, Text, Image, Pressable, TextInput, Linking } from "react-native";
 import {
   Gesture,
   GestureDetector,
@@ -27,7 +27,6 @@ import {
   reportarResenaEnLaApi,
   obtenerResenasDeComercio,
   responderResenaEnLaApi,
-
 } from "../../service/resenas";
 import {
   agregarFavorito,
@@ -39,7 +38,6 @@ import type { Comercio } from "../../tipos";
 import { guardarMediosComercio } from "../../service/archivosOffline";
 import { buscarComercioPorId } from "../../service/comercios";
 import { useSesion } from "../../contexto/sesion";
-
 
 export default function DetalleComercioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -57,86 +55,73 @@ export default function DetalleComercioScreen() {
   const [respuestaNueva, setRespuestaNueva] = useState("");
   const [resenaEditando, setResenaEditando] = useState<string | null>(null);
 
+  const procesarQR = async (data: string) => {
+    let datos: {
+      promocionId?: string;
+      comercioId?: string;
+      codigo?: string;
+    };
 
-const procesarQR = async (data: string) => {
-
-  let datos: {
-    promocionId?: string;
-    comercioId?: string;
-    codigo?: string;
-  };
-
-  try {
-    datos = JSON.parse(data);
-  } catch {
-    setResultadoQR("El QR no tiene un formato válido");
-    return;
-  }
-
-  if (!datos.promocionId || !datos.comercioId || !datos.codigo) {
-    setResultadoQR("QR inválido");
-    return;
-  }
-
-  if (datos.comercioId !== id) {
-    setResultadoQR("Esta promoción no corresponde a este comercio");
-    return;
-  }
-
-  
-  const promociones = await buscarPromocionesPorComercio(datos.comercioId);
-
-  const promocion = promociones.find(
-    (promo) => promo.id === datos.promocionId,
-  );
-
-  if (!promocion) {
-    setResultadoQR("La promoción no pertenece a este comercio");
-    return;
-  }
-
-  const hoy = new Date();
-  const desde = new Date(promocion.desde);
-  const hasta = new Date(promocion.hasta);
-
-  if (!promocion.activa || hoy < desde || hoy > hasta) {
-    setResultadoQR("La promoción no está vigente");
-    return;
-  }
-
-
-  try {
-    await validarCanjeEnLaApi(datos.codigo);
-
-  
     try {
-      await registrarCanje(
-        datos.promocionId,
-        datos.comercioId,
-        datos.codigo,
-      );
-    } catch (error) {
-      console.error("No se pudo guardar el registro local:", error);
+      datos = JSON.parse(data);
+    } catch {
+      setResultadoQR("El QR no tiene un formato válido");
+      return;
     }
 
-    setResultadoQR("¡Canje registrado correctamente!");
-    await exito();
+    if (!datos.promocionId || !datos.comercioId || !datos.codigo) {
+      setResultadoQR("QR inválido");
+      return;
+    }
 
-  } catch (error) {
-   
-    console.error("Error al validar el canje en la API:", error);
+    if (datos.comercioId !== id) {
+      setResultadoQR("Esta promoción no corresponde a este comercio");
+      return;
+    }
 
-    setResultadoQR(
-      error instanceof Error
-        ? error.message
-        : "No se pudo validar el canje. Intentá nuevamente.",
+    const promociones = await buscarPromocionesPorComercio(datos.comercioId);
+
+    const promocion = promociones.find(
+      (promo) => promo.id === datos.promocionId,
     );
-  }
-};
+
+    if (!promocion) {
+      setResultadoQR("La promoción no pertenece a este comercio");
+      return;
+    }
+
+    const hoy = new Date();
+    const desde = new Date(promocion.desde);
+    const hasta = new Date(promocion.hasta);
+
+    if (!promocion.activa || hoy < desde || hoy > hasta) {
+      setResultadoQR("La promoción no está vigente");
+      return;
+    }
+
+    try {
+      await validarCanjeEnLaApi(datos.codigo);
+
+      try {
+        await registrarCanje(datos.promocionId, datos.comercioId, datos.codigo);
+      } catch (error) {
+        console.error("No se pudo guardar el registro local:", error);
+      }
+
+      setResultadoQR("¡Canje registrado correctamente!");
+      await exito();
+    } catch (error) {
+      console.error("Error al validar el canje en la API:", error);
+
+      setResultadoQR(
+        error instanceof Error
+          ? error.message
+          : "No se pudo validar el canje. Intentá nuevamente.",
+      );
+    }
+  };
 
   const [comercio, setComercio] = useState<Comercio | null>(null);
-
-
 
   const [favorito, setFavorito] = useState(false);
   const [actualizandoFavorito, setActualizandoFavorito] = useState(false);
@@ -171,19 +156,18 @@ const procesarQR = async (data: string) => {
 
         const comercioConMedios = await guardarMediosComercio(comercioObtenido);
 
-
         if (activo) {
           setComercio(comercioConMedios);
           setResenas(resenasObtenidas);
 
           const miResena = usuario
-                  ? resenasObtenidas.find((r) => r.usuarioId === usuario.id)
-                  : undefined;
-              if (miResena) {
-                  setResenaEditando(miResena.id);
-                  setComentarioNuevo(miResena.comentario);
-                  setEstrellasSeleccionadas(miResena.estrellas);
-            }
+            ? resenasObtenidas.find((r) => r.usuarioId === usuario.id)
+            : undefined;
+          if (miResena) {
+            setResenaEditando(miResena.id);
+            setComentarioNuevo(miResena.comentario);
+            setEstrellasSeleccionadas(miResena.estrellas);
+          }
         }
       } catch (error) {
         console.error(
@@ -199,7 +183,6 @@ const procesarQR = async (data: string) => {
       activo = false;
     };
   }, [id, usuario]);
-
 
   useEffect(() => {
     let activo = true;
@@ -224,8 +207,8 @@ const procesarQR = async (data: string) => {
   async function publicarResena() {
     if (comentarioNuevo.trim() === "") return;
     if (!usuario) {
-        alert("Necesitás ingresar con tu cuenta para dejar una reseña.");
-        return;
+      alert("Necesitás ingresar con tu cuenta para dejar una reseña.");
+      return;
     }
 
     try {
@@ -370,7 +353,6 @@ const procesarQR = async (data: string) => {
       <ScrollView>
         <Button title="Volver" />
         <View style={styles.tarjetaFicha}>
-
           <View style={styles.encabezadoComercio}>
             <Text style={styles.tituloComercio} numberOfLines={2}>
               {comercio?.nombre ?? "Ficha del Comercio"}
@@ -390,74 +372,85 @@ const procesarQR = async (data: string) => {
                 Dirección: {comercio.direccion}
               </Text>
 
-          {comercio.telefono && (
-            <Pressable onPress={() => Linking.openURL(`tel:${comercio.telefono}`)}>
-              <Text style={styles.descripcion}>
-                📞 Teléfono: {comercio.telefono}
-              </Text>
-            </Pressable>
-          )}
-
-          {comercio.whatsapp && (
-            <Pressable
-              onPress={() =>
-                Linking.openURL(
-                  `https://wa.me/${comercio.whatsapp?.replace(/\D/g, "")}`,
-                )
-              }
-            >
-              <Text style={styles.descripcion}>
-                💬 WhatsApp: {comercio.whatsapp}
-              </Text>
-            </Pressable>
-          )}
-
-          {comercio.instagram && (
-            <Pressable
-              onPress={() =>
-                Linking.openURL(
-                  comercio.instagram!.startsWith("http")
-                    ? comercio.instagram!
-                    : `https://instagram.com/${comercio.instagram!.replace("@", "")}`,
-                )
-              }
-            >
-              <Text style={styles.descripcion}>
-                📷 Instagram: {comercio.instagram}
-              </Text>
-            </Pressable>
-          )}
-
-          {comercio.horarios?.length > 0 && (
-            <View style={{ marginTop: 12 }}>
-              <Text style={styles.titulo}>Horarios de atención</Text>
-
-              {["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"].map(
-                (dia, indice) => {
-                  const horariosDia = comercio.horarios.filter(
-                    (horario) => horario.dia === indice,
-                  );
-
-                  if (horariosDia.length === 0) return null;
-
-                  return (
-                    <Text key={dia} style={styles.descripcion}>
-                      {dia}: {horariosDia.map((h) => `${h.abre} a ${h.cierra}`).join(" / ")}
-                    </Text>
-                  );
-                },
+              {comercio.telefono && (
+                <Pressable
+                  onPress={() => Linking.openURL(`tel:${comercio.telefono}`)}
+                >
+                  <Text style={styles.descripcion}>
+                    📞 Teléfono: {comercio.telefono}
+                  </Text>
+                </Pressable>
               )}
-            </View>
-          )}
 
-          {comercio.mediosDePago?.length > 0 && (
-            <View style={{ marginTop: 12 }}>
-              <Text style={styles.titulo}>Medios de pago</Text>
-              <Text style={styles.descripcion}>
-                {comercio.mediosDePago.join(" · ")}
-              </Text>
-            </View>
-          )}
+              {comercio.whatsapp && (
+                <Pressable
+                  onPress={() =>
+                    Linking.openURL(
+                      `https://wa.me/${comercio.whatsapp?.replace(/\D/g, "")}`,
+                    )
+                  }
+                >
+                  <Text style={styles.descripcion}>
+                    💬 WhatsApp: {comercio.whatsapp}
+                  </Text>
+                </Pressable>
+              )}
+
+              {comercio.instagram && (
+                <Pressable
+                  onPress={() =>
+                    Linking.openURL(
+                      comercio.instagram!.startsWith("http")
+                        ? comercio.instagram!
+                        : `https://instagram.com/${comercio.instagram!.replace("@", "")}`,
+                    )
+                  }
+                >
+                  <Text style={styles.descripcion}>
+                    📷 Instagram: {comercio.instagram}
+                  </Text>
+                </Pressable>
+              )}
+
+              {comercio.horarios?.length > 0 && (
+                <View style={{ marginTop: 12 }}>
+                  <Text style={styles.titulo}>Horarios de atención</Text>
+
+                  {[
+                    "Domingo",
+                    "Lunes",
+                    "Martes",
+                    "Miércoles",
+                    "Jueves",
+                    "Viernes",
+                    "Sábado",
+                  ].map((dia, indice) => {
+                    const horariosDia = comercio.horarios.filter(
+                      (horario) => horario.dia === indice,
+                    );
+
+                    if (horariosDia.length === 0) return null;
+
+                    return (
+                      <Text key={dia} style={styles.descripcion}>
+                        {dia}:{" "}
+                        {horariosDia
+                          .map((h) => `${h.abre} a ${h.cierra}`)
+                          .join(" / ")}
+                      </Text>
+                    );
+                  })}
+                </View>
+              )}
+
+              {comercio.mediosDePago?.length > 0 && (
+                <View style={{ marginTop: 12 }}>
+                  <Text style={styles.titulo}>Medios de pago</Text>
+                  <Text style={styles.descripcion}>
+                    {comercio.mediosDePago.join(" · ")}
+                  </Text>
+                </View>
+              )}
 
               {comercio.imagenes?.map((imagen, indice) => (
                 <Image
@@ -562,7 +555,9 @@ const procesarQR = async (data: string) => {
             {listaPromociones.map((promocion) => (
               <Text key={promocion.id} style={styles.descripcion}>
                 {promocion.titulo}: {promocion.detalle}
-                {promocion.descuento !== null ? ` - Descuento: ${promocion.descuento}%` : ""}
+                {promocion.descuento !== null
+                  ? ` - Descuento: ${promocion.descuento}%`
+                  : ""}
               </Text>
             ))}
           </View>
@@ -604,71 +599,73 @@ const procesarQR = async (data: string) => {
             Promedio: {promedioResenas.toFixed(1)} / 5 ⭐
           </Text>
           {resenasOrdenadas.map((item) => {
-  const esMia = usuario?.id === item.usuarioId;
-  const esDuenioDelComercio =
-      usuario?.rol === "comercio" && usuario.comercioId === String(id);
+            const esMia = usuario?.id === item.usuarioId;
+            const esDuenioDelComercio =
+              usuario?.rol === "comercio" && usuario.comercioId === String(id);
 
-  return (
-    <View key={item.id} style={styles.tarjetaFicha}>
-        <Text style={styles.descripcion}>
-            {"  ⭐".repeat(item.estrellas)}
-        </Text>
-        <Text style={styles.descripcion}>{item.comentario}</Text>
-
-        {esMia && (
-            <>
-                <Pressable
-                    onPress={() => eliminarResena(item.id)}
-                    style={styles.botonEliminar}
-                >
-                    <Text style={styles.textoEliminar}>Eliminar reseña</Text>
-                </Pressable>
-                <Pressable
-                    onPress={() => editarResena(item.id)}
-                    style={styles.botonEditar}
-                >
-                    <Text style={styles.textoEditar}>Editar reseña</Text>
-                </Pressable>
-            </>
-        )}
-
-        {usuario && !esMia && (
-            <Pressable
-                onPress={() => reportarResena(item.id)}
-                style={styles.botonReportar}
-            >
-                <Text style={styles.textoReportar}>
-                    {item.reportada ? "Reseña reportada" : "Reportar reseña"}
+            return (
+              <View key={item.id} style={styles.tarjetaFicha}>
+                <Text style={styles.descripcion}>
+                  {"  ⭐".repeat(item.estrellas)}
                 </Text>
-            </Pressable>
-        )}
+                <Text style={styles.descripcion}>{item.comentario}</Text>
 
-        {item.respuesta ? (
-            <Text style={styles.descripcion}>
-                Respuesta del comercio: {item.respuesta}
-            </Text>
-        ) : (
-            esDuenioDelComercio && (
-                <>
-                    <TextInput
+                {esMia && (
+                  <>
+                    <Pressable
+                      onPress={() => eliminarResena(item.id)}
+                      style={styles.botonEliminar}
+                    >
+                      <Text style={styles.textoEliminar}>Eliminar reseña</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => editarResena(item.id)}
+                      style={styles.botonEditar}
+                    >
+                      <Text style={styles.textoEditar}>Editar reseña</Text>
+                    </Pressable>
+                  </>
+                )}
+
+                {usuario && !esMia && (
+                  <Pressable
+                    onPress={() => reportarResena(item.id)}
+                    style={styles.botonReportar}
+                  >
+                    <Text style={styles.textoReportar}>
+                      {item.reportada ? "Reseña reportada" : "Reportar reseña"}
+                    </Text>
+                  </Pressable>
+                )}
+
+                {item.respuesta ? (
+                  <Text style={styles.descripcion}>
+                    Respuesta del comercio: {item.respuesta}
+                  </Text>
+                ) : (
+                  esDuenioDelComercio && (
+                    <>
+                      <TextInput
                         style={styles.campoComentario}
                         placeholder="Respuesta del comercio..."
                         value={respuestaNueva}
                         onChangeText={setRespuestaNueva}
                         multiline
-                    />
-                    <Pressable
+                      />
+                      <Pressable
                         style={styles.botonRespuesta}
                         onPress={() => responderResena(item.id, respuestaNueva)}
-                    >
-                        <Text style={styles.textoBotonRespuesta}>Responder</Text>
-                    </Pressable>
-                </>
-            )
-        )}
-    </View>
-  );
-})}
+                      >
+                        <Text style={styles.textoBotonRespuesta}>
+                          Responder
+                        </Text>
+                      </Pressable>
+                    </>
+                  )
+                )}
+              </View>
+            );
+          })}
         </View>
       </ScrollView>
     </SafeAreaView>

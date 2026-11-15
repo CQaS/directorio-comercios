@@ -1,6 +1,6 @@
 import { Resena } from "../app/comercio/[id]";
 import { peticionApi } from "./configuracionApi";
-import { leerToken, leerUsuario  } from "./sesion";
+import { leerToken, leerUsuario } from "./sesion";
 import { buscarComercios } from "./comercios";
 
 //const API_URL = "http://192.168.1.183:3000";
@@ -42,19 +42,19 @@ export async function obtenerMisResenasDeLaApi(): Promise<Resena[]> {
 
   const usuario = await leerUsuario();
 
-    if (!usuario) {
-        throw new Error("No se encontró el usuario de sesión.");
-    }
+  if (!usuario) {
+    throw new Error("No se encontró el usuario de sesión.");
+  }
 
-    const comercios = await buscarComercios();
+  const comercios = await buscarComercios();
 
-    const resenasPorComercio = await Promise.all(
-        comercios.map((comercio) => obtenerResenasDeComercio(comercio.id)),
-    );
+  const resenasPorComercio = await Promise.all(
+    comercios.map((comercio) => obtenerResenasDeComercio(comercio.id)),
+  );
 
-    return resenasPorComercio
-        .flat()
-        .filter((resena) => resena.usuarioId === usuario.id);
+  return resenasPorComercio
+    .flat()
+    .filter((resena) => resena.usuarioId === usuario.id);
 }
 
 export async function obtenerResenasDeComercio(
