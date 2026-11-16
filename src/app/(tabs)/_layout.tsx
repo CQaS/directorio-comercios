@@ -2,16 +2,18 @@ import { Tabs } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-
+import { useSesion } from '../../contexto/sesion';
 
 
 
 export default function TabsLayout() {
-
+  const { usuario } = useSesion();
+  const pestanaInicial = usuario?.rol === 'comercio' ? 'yo' : 'index';
 
   return (
     <GestureHandlerRootView style={{flex:1}}>
     <Tabs
+      initialRouteName={pestanaInicial}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#0B3A5D',
