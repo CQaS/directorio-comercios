@@ -187,7 +187,7 @@ export default function YoScreen() {
           >
             <View style={styles.rowLeft}>
               <Ionicons name="star-outline" size={22} color="#F0AD4E" />
-              <Text style={styles.rowText}>Mis Reseñas</Text>
+              <Text style={styles.rowText}>{usuario?.rol === "comercio" ? "Reseñas de mi comercio" : "Mis Reseñas"}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#8E8E93" />
           </Pressable>
