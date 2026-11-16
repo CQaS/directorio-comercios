@@ -19,21 +19,33 @@ export default function MisResenasScreen() {
     Record<string, string>
   >({});
   const [error, setError] = useState("");
-  const { estado, usuario, salir } = useSesion();
-  console.log("Usuario en MisResenasScreen:", usuario);
+  const { usuario } = useSesion();
+  const comercioDelUsuario =
+    usuario?.rol === "comercio" ? usuario.comercioId : null;
+  const esComercio = !!comercioDelUsuario;
 
   useFocusEffect(
     useCallback(() => {
       let activo = true;
 
       async function cargarMisResenas() {
+        if (!usuario) {
+          setResenas([]);
+          setError("");
+          return;
+        }
+
         try {
-          const resultado = await obtenerResenasDeComercio(
-            usuario?.comercioId || "",
-          );
-          console.log("Reseñas obtenidas:", resultado);
+          const resultado = comercioDelUsuario
+            ? await obtenerResenasDeComercio(comercioDelUsuario)
+            : await obtenerMisResenasDeLaApi();
 
           if (!activo) return;
+
+          const ordenadas = [...resultado].sort(
+            (a, b) =>
+              new Date(b.creadaEn).getTime() - new Date(a.creadaEn).getTime(),
+          );
 
           setResenas(resultado);
           setError("");
@@ -65,7 +77,7 @@ export default function MisResenasScreen() {
       return () => {
         activo = false;
       };
-    }, []),
+    }, [usuario, comercioDelUsuario]),
   );
 
   return (
@@ -75,20 +87,34 @@ export default function MisResenasScreen() {
       <Button title="Volver" />
 
       <ScrollView contentContainerStyle={styles.contenido}>
-        <Text style={styles.titulo}>Mis reseñas</Text>
+        <Text style={styles.titulo}>
+          {esComercio ? "Reseñas de mi comercio" : "Mis reseñas"}
+        </Text>
 
-        <Text style={styles.subtitulo}>Tus opiniones sobre los comercios</Text>
+        <Text style={styles.subtitulo}>
+          {esComercio
+            ? "Lo que opinan los vecinos sobre tu comercio"
+            : "Tus opiniones sobre los comercios"}
+        </Text>
 
         {resenas.length === 0 ? (
           <View style={styles.tarjetaVacia}>
             <Text style={styles.mensaje}>
-              Todavía no publicaste ninguna reseña.
+              {!usuario
+                ? "Necesitás ingresar con tu cuenta para ver tus reseñas."
+                : esComercio
+                  ? "Todavía no te dejaron ninguna reseña."
+                  : "Todavía no publicaste ninguna reseña."}
             </Text>
           </View>
         ) : (
           resenas.map((resena) => (
             <View key={resena.id} style={styles.tarjeta}>
-              <Text style={styles.nombreComercio}>#{resena.id}</Text>
+              <Text style={styles.nombreComercio}>
+                {esComercio
+                  ? new Date(resena.creadaEn).toLocaleDateString("es-AR")
+                  : (nombresComercios[resena.comercioId] ?? "Comercio")}
+              </Text>
 
               <Text style={styles.estrellas}>
                 {"⭐".repeat(resena.estrellas)}
